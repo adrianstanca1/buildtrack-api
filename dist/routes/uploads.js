@@ -8,23 +8,12 @@ const express_1 = require("express");
 const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const uuid_1 = require("uuid");
-const fs_1 = __importDefault(require("fs"));
 const auth_js_1 = require("../middleware/auth.js");
 const response_js_1 = require("../utils/response.js");
+const minio_js_1 = require("../config/minio.js");
 const router = (0, express_1.Router)();
 exports.uploadsRouter = router;
-const uploadDir = process.env.UPLOAD_DIR || './uploads';
-// Ensure upload directory exists
-if (!fs_1.default.existsSync(uploadDir)) {
-    fs_1.default.mkdirSync(uploadDir, { recursive: true });
-}
-const storage = multer_1.default.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadDir),
-    filename: (_req, file, cb) => {
-        const ext = path_1.default.extname(file.originalname);
-        cb(null, `${(0, uuid_1.v4)()}${ext}`);
-    },
-});
+const storage = multer_1.default.memoryStorage();
 const upload = (0, multer_1.default)({
     storage,
     limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10) },
@@ -38,41 +27,48 @@ const upload = (0, multer_1.default)({
     },
 });
 // ─── Single File Upload ──────────────────────────────────────────────────
-router.post('/', auth_js_1.authenticateToken, upload.single('file'), (req, res) => {
+router.post('/', auth_js_1.authenticateToken, upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
             return (0, response_js_1.errorResponse)(res, 'No file uploaded', 'VALIDATION_ERROR', 400);
         }
-        const url = `${process.env.API_URL || ''}/uploads/${req.file.filename}`;
+        const ext = path_1.default.extname(req.file.originalname);
+        const key = `uploads/${(0, uuid_1.v4)()}${ext}`;
+        const url = await (0, minio_js_1.uploadFile)(key, req.file.buffer, req.file.mimetype);
         (0, response_js_1.successResponse)(res, {
             originalName: req.file.originalname,
-            filename: req.file.filename,
+            filename: key,
             url,
             size: req.file.size,
             mimetype: req.file.mimetype,
         }, 201);
     }
     catch (err) {
-        (0, response_js_1.errorResponse)(res, 'Upload failed', 'INTERNAL_ERROR', 500);
+        (0, response_js_1.errorResponse)(res, err.message || 'Upload failed', 'INTERNAL_ERROR', 500);
     }
 });
 // ─── Multiple File Upload ────────────────────────────────────────────────
-router.post('/multiple', auth_js_1.authenticateToken, upload.array('files', 10), (req, res) => {
+router.post('/multiple', auth_js_1.authenticateToken, upload.array('files', 10), async (req, res) => {
     try {
         if (!req.files || !Array.isArray(req.files)) {
             return (0, response_js_1.errorResponse)(res, 'No files uploaded', 'VALIDATION_ERROR', 400);
         }
-        const files = req.files.map((f) => ({
-            originalName: f.originalname,
-            filename: f.filename,
-            url: `${process.env.API_URL || ''}/uploads/${f.filename}`,
-            size: f.size,
-            mimetype: f.mimetype,
+        const files = await Promise.all(req.files.map(async (f) => {
+            const ext = path_1.default.extname(f.originalname);
+            const key = `uploads/${(0, uuid_1.v4)()}${ext}`;
+            const url = await (0, minio_js_1.uploadFile)(key, f.buffer, f.mimetype);
+            return {
+                originalName: f.originalname,
+                filename: key,
+                url,
+                size: f.size,
+                mimetype: f.mimetype,
+            };
         }));
         (0, response_js_1.successResponse)(res, { files }, 201);
     }
     catch (err) {
-        (0, response_js_1.errorResponse)(res, 'Upload failed', 'INTERNAL_ERROR', 500);
+        (0, response_js_1.errorResponse)(res, err.message || 'Upload failed', 'INTERNAL_ERROR', 500);
     }
 });
 //# sourceMappingURL=uploads.js.map

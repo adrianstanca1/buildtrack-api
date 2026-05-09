@@ -2,26 +2,13 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse } from '../utils/response.js';
+import { uploadFile } from '../config/minio.js';
 
 const router = Router();
 
-const uploadDir = process.env.UPLOAD_DIR || './uploads';
-
-// Ensure upload directory exists
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  },
-});
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -36,40 +23,49 @@ const upload = multer({
 });
 
 // ─── Single File Upload ──────────────────────────────────────────────────
-router.post('/', authenticateToken, upload.single('file'), (req, res) => {
+router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return errorResponse(res, 'No file uploaded', 'VALIDATION_ERROR', 400);
     }
-    const url = `${process.env.API_URL || ''}/uploads/${req.file.filename}`;
+    const ext = path.extname(req.file.originalname);
+    const key = `uploads/${uuidv4()}${ext}`;
+    const url = await uploadFile(key, req.file.buffer, req.file.mimetype);
     successResponse(res, {
       originalName: req.file.originalname,
-      filename: req.file.filename,
+      filename: key,
       url,
       size: req.file.size,
       mimetype: req.file.mimetype,
     }, 201);
-  } catch (err) {
-    errorResponse(res, 'Upload failed', 'INTERNAL_ERROR', 500);
+  } catch (err: any) {
+    errorResponse(res, err.message || 'Upload failed', 'INTERNAL_ERROR', 500);
   }
 });
 
 // ─── Multiple File Upload ────────────────────────────────────────────────
-router.post('/multiple', authenticateToken, upload.array('files', 10), (req, res) => {
+router.post('/multiple', authenticateToken, upload.array('files', 10), async (req, res) => {
   try {
     if (!req.files || !Array.isArray(req.files)) {
       return errorResponse(res, 'No files uploaded', 'VALIDATION_ERROR', 400);
     }
-    const files = (req.files as Express.Multer.File[]).map((f) => ({
-      originalName: f.originalname,
-      filename: f.filename,
-      url: `${process.env.API_URL || ''}/uploads/${f.filename}`,
-      size: f.size,
-      mimetype: f.mimetype,
-    }));
+    const files = await Promise.all(
+      (req.files as Express.Multer.File[]).map(async (f) => {
+        const ext = path.extname(f.originalname);
+        const key = `uploads/${uuidv4()}${ext}`;
+        const url = await uploadFile(key, f.buffer, f.mimetype);
+        return {
+          originalName: f.originalname,
+          filename: key,
+          url,
+          size: f.size,
+          mimetype: f.mimetype,
+        };
+      })
+    );
     successResponse(res, { files }, 201);
-  } catch (err) {
-    errorResponse(res, 'Upload failed', 'INTERNAL_ERROR', 500);
+  } catch (err: any) {
+    errorResponse(res, err.message || 'Upload failed', 'INTERNAL_ERROR', 500);
   }
 });
 
