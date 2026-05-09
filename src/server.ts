@@ -20,7 +20,8 @@ import { inspectionsRouter } from './routes/inspections.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { adminRouter } from './routes/admin.js';
-import { pool } from './config/database.js';
+import { uploadsRouter } from './routes/uploads.js';
+import { pool, initDatabase } from './config/database.js';
 
 dotenv.config();
 
@@ -79,6 +80,7 @@ app.use('/api/inspections', inspectionsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/uploads', uploadsRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
@@ -124,6 +126,10 @@ async function startServer() {
     const result = await client.query('SELECT NOW()');
     client.release();
     console.log('[DB] Connected:', result.rows[0].now);
+
+    // Initialize database tables
+    await initDatabase();
+    console.log('[DB] Tables initialized');
 
     httpServer.listen(PORT, () => {
       console.log(`[Server] BuildTrack API running on port ${PORT}`);

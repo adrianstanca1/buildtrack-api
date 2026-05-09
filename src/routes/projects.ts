@@ -223,4 +223,53 @@ router.get('/:id/stats', authenticateToken, validateParams(projectIdSchema), asy
   }
 });
 
+// ─── Assign Workers ─────────────────────────────────────────────────────
+router.post('/:id/workers', authenticateToken, validateParams(projectIdSchema), async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const userId = req.user!.id;
+    const { workerIds } = req.body;
+
+    if (!Array.isArray(workerIds) || workerIds.length === 0) {
+      return errorResponse(res, 'workerIds array required', 'VALIDATION_ERROR', 400);
+    }
+
+    // Verify ownership
+    const check = await query('SELECT id FROM projects WHERE id = $1 AND user_id = $2', [projectId, userId]);
+    if (check.rows.length === 0) return errorResponse(res, 'Project not found', 'NOT_FOUND', 404);
+
+    const results = [];
+    for (const workerId of workerIds) {
+      const workerCheck = await query('SELECT id FROM workers WHERE id = $1 AND user_id = $2', [workerId, userId]);
+      if (workerCheck.rows.length === 0) continue;
+      const assign = await query(
+        `INSERT INTO project_workers (project_id, worker_id) VALUES ($1, $2)
+         ON CONFLICT (project_id, worker_id) DO NOTHING RETURNING *`,
+        [projectId, workerId]
+      );
+      if (assign.rows.length > 0) results.push(assign.rows[0]);
+    }
+
+    successResponse(res, { assigned: results.length, workers: results });
+  } catch (err) {
+    errorResponse(res, 'Failed to assign workers', 'INTERNAL_ERROR', 500);
+  }
+});
+
+router.delete('/:id/workers/:workerId', authenticateToken, validateParams(projectIdSchema), async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const workerId = req.params.workerId;
+    const userId = req.user!.id;
+
+    const check = await query('SELECT id FROM projects WHERE id = $1 AND user_id = $2', [projectId, userId]);
+    if (check.rows.length === 0) return errorResponse(res, 'Project not found', 'NOT_FOUND', 404);
+
+    await query('DELETE FROM project_workers WHERE project_id = $1 AND worker_id = $2', [projectId, workerId]);
+    successResponse(res, { message: 'Worker removed from project' });
+  } catch (err) {
+    errorResponse(res, 'Failed to remove worker', 'INTERNAL_ERROR', 500);
+  }
+});
+
 export { router as projectsRouter };
