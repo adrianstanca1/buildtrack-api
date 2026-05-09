@@ -1,4 +1,20 @@
 import { Router } from 'express';
+
+/**
+ * @swagger
+ * /api/tasks:
+ *   get:
+ *     summary: List all tasks for the authenticated user
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of tasks
+ *       401:
+ *         description: Unauthorized
+ */
+
 import { z } from 'zod';
 import { query } from '../config/database.js';
 import { validate, validateParams } from '../middleware/validate.js';

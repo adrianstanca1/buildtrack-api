@@ -9,7 +9,11 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
+import swaggerUi from 'swagger-ui-express';
 
+import { swaggerSpec } from './config/swagger.js';
+import { requestLogger } from './middleware/requestLogger.js';
+import { performanceMiddleware } from './middleware/performance.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authRouter } from './routes/auth.js';
 import { projectsRouter } from './routes/projects.js';
@@ -65,6 +69,16 @@ const limiter = rateLimit({
   },
 });
 app.use('/api/', limiter);
+
+// ─── Logging & Performance ──────────────────────────────────────────────
+app.use(requestLogger);
+app.use(performanceMiddleware);
+
+// ─── Swagger Docs ───────────────────────────────────────────────────────
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  explorer: true,
+  customSiteTitle: 'BuildTrack API Docs',
+}));
 
 // ─── Health Check ─────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {

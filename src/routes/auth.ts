@@ -7,6 +7,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
 import { hashPassword, comparePassword, validatePassword } from '../utils/password.js';
 import { successResponse, errorResponse } from '../utils/response.js';
+import { logger } from '../utils/logger.js';
 
 const router = Router();
 
@@ -28,7 +29,37 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(8, 'New password must be at least 8 characters'),
 });
 
-// ─── Register ────────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               password: { type: string, minLength: 8 }
+ *               firstName: { type: string }
+ *               lastName: { type: string }
+ *               companyName: { type: string }
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       400:
+ *         description: Validation error
+ *       409:
+ *         description: Email already exists
+ */
 router.post('/register', validate(registerSchema), async (req, res) => {
   try {
     const { email, password, firstName, lastName, companyName } = req.body;
@@ -95,7 +126,32 @@ router.post('/register', validate(registerSchema), async (req, res) => {
   }
 });
 
-// ─── Login ────────────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login with email and password
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               password: { type: string }
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       401:
+ *         description: Invalid credentials
+ */
 router.post('/login', validate(loginSchema), async (req, res) => {
   try {
     const { email, password } = req.body;

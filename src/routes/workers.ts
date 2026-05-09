@@ -1,4 +1,20 @@
 import { Router } from 'express';
+
+/**
+ * @swagger
+ * /api/workers:
+ *   get:
+ *     summary: List all workers
+ *     tags: [Workers]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of workers
+ *       401:
+ *         description: Unauthorized
+ */
+
 import { z } from 'zod';
 import { query } from '../config/database.js';
 import { validate, validateParams } from '../middleware/validate.js';

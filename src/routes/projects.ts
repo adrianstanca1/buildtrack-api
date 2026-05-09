@@ -1,4 +1,20 @@
 import { Router } from 'express';
+
+/**
+ * @swagger
+ * /api/projects:
+ *   get:
+ *     summary: List all projects for the authenticated user
+ *     tags: [Projects]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of projects
+ *       401:
+ *         description: Unauthorized
+ */
+
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { query, pool } from '../config/database.js';

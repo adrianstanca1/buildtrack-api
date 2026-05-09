@@ -1,4 +1,20 @@
 import { Router } from 'express';
+
+/**
+ * @swagger
+ * /api/safety:
+ *   get:
+ *     summary: List all safety incidents
+ *     tags: [Safety]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of incidents
+ *       401:
+ *         description: Unauthorized
+ */
+
 import { z } from 'zod';
 import { query } from '../config/database.js';
 import { validate, validateParams } from '../middleware/validate.js';

@@ -2,6 +2,20 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.workersRouter = void 0;
 const express_1 = require("express");
+/**
+ * @swagger
+ * /api/workers:
+ *   get:
+ *     summary: List all workers
+ *     tags: [Workers]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of workers
+ *       401:
+ *         description: Unauthorized
+ */
 const zod_1 = require("zod");
 const database_js_1 = require("../config/database.js");
 const validate_js_1 = require("../middleware/validate.js");

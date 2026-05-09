@@ -15,6 +15,10 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const http_1 = require("http");
 const socket_io_1 = require("socket.io");
 const path_1 = __importDefault(require("path"));
+const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
+const swagger_js_1 = require("./config/swagger.js");
+const requestLogger_js_1 = require("./middleware/requestLogger.js");
+const performance_js_1 = require("./middleware/performance.js");
 const errorHandler_js_1 = require("./middleware/errorHandler.js");
 const auth_js_1 = require("./routes/auth.js");
 const projects_js_1 = require("./routes/projects.js");
@@ -66,6 +70,14 @@ const limiter = (0, express_rate_limit_1.default)({
     },
 });
 app.use('/api/', limiter);
+// ─── Logging & Performance ──────────────────────────────────────────────
+app.use(requestLogger_js_1.requestLogger);
+app.use(performance_js_1.performanceMiddleware);
+// ─── Swagger Docs ───────────────────────────────────────────────────────
+app.use('/api/docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swagger_js_1.swaggerSpec, {
+    explorer: true,
+    customSiteTitle: 'BuildTrack API Docs',
+}));
 // ─── Health Check ─────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

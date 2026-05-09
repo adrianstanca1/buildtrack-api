@@ -27,7 +27,37 @@ const changePasswordSchema = zod_1.z.object({
     currentPassword: zod_1.z.string().min(1, 'Current password is required'),
     newPassword: zod_1.z.string().min(8, 'New password must be at least 8 characters'),
 });
-// ─── Register ────────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               password: { type: string, minLength: 8 }
+ *               firstName: { type: string }
+ *               lastName: { type: string }
+ *               companyName: { type: string }
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       400:
+ *         description: Validation error
+ *       409:
+ *         description: Email already exists
+ */
 router.post('/register', (0, validate_js_1.validate)(registerSchema), async (req, res) => {
     try {
         const { email, password, firstName, lastName, companyName } = req.body;
@@ -76,7 +106,32 @@ router.post('/register', (0, validate_js_1.validate)(registerSchema), async (req
         (0, response_js_1.errorResponse)(res, 'Failed to create account', 'INTERNAL_ERROR', 500);
     }
 });
-// ─── Login ────────────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login with email and password
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               password: { type: string }
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       401:
+ *         description: Invalid credentials
+ */
 router.post('/login', (0, validate_js_1.validate)(loginSchema), async (req, res) => {
     try {
         const { email, password } = req.body;
