@@ -29,6 +29,7 @@ const uploads_js_1 = require("./routes/uploads.js");
 const database_js_1 = require("./config/database.js");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
+app.set('trust proxy', 1);
 const httpServer = (0, http_1.createServer)(app);
 const io = new socket_io_1.Server(httpServer, {
     cors: {
