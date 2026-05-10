@@ -23,7 +23,8 @@ async function registerUser(data) {
     const accessToken = (0, jwt_js_1.generateAccessToken)(payload);
     const refreshToken = (0, jwt_js_1.generateRefreshToken)(payload);
     const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), userId, refreshToken, refreshExpiry]);
+    const tokenHash = (0, jwt_js_1.hashRefreshToken)(refreshToken);
+    await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), userId, tokenHash, refreshExpiry]);
     const user = await (0, database_js_1.query)('SELECT id, email, first_name, last_name, role, company_name, subscription_tier, subscription_status, created_at FROM users WHERE id = $1', [userId]);
     return { user: user.rows[0], accessToken, refreshToken };
 }
@@ -39,7 +40,8 @@ async function loginUser(email, password) {
     const accessToken = (0, jwt_js_1.generateAccessToken)(payload);
     const refreshToken = (0, jwt_js_1.generateRefreshToken)(payload);
     const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), user.id, refreshToken, refreshExpiry]);
+    const tokenHash = (0, jwt_js_1.hashRefreshToken)(refreshToken);
+    await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), user.id, tokenHash, refreshExpiry]);
     return {
         user: {
             id: user.id, email: user.email,
@@ -56,20 +58,23 @@ async function loginUser(email, password) {
 async function refreshAccessToken(refreshToken) {
     const { verifyRefreshToken } = await import('../utils/jwt.js');
     const decoded = verifyRefreshToken(refreshToken);
-    const tokenResult = await (0, database_js_1.query)('SELECT * FROM refresh_tokens WHERE token = $1 AND user_id = $2 AND expires_at > NOW()', [refreshToken, decoded.userId]);
+    const tokenHash = (0, jwt_js_1.hashRefreshToken)(refreshToken);
+    const tokenResult = await (0, database_js_1.query)('SELECT * FROM refresh_tokens WHERE token_hash = $1 AND user_id = $2 AND expires_at > NOW()', [tokenHash, decoded.userId]);
     if (tokenResult.rows.length === 0)
         throw new Error('INVALID_REFRESH_TOKEN');
     const payload = { userId: decoded.userId, email: decoded.email, role: decoded.role };
     const newAccessToken = (0, jwt_js_1.generateAccessToken)(payload);
     const newRefreshToken = (0, jwt_js_1.generateRefreshToken)(payload);
-    await (0, database_js_1.query)('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+    await (0, database_js_1.query)('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
     const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), decoded.userId, newRefreshToken, newExpiry]);
+    const newTokenHash = (0, jwt_js_1.hashRefreshToken)(newRefreshToken);
+    await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), decoded.userId, newTokenHash, newExpiry]);
     return { accessToken: newAccessToken, refreshToken: newRefreshToken };
 }
 async function logoutUser(refreshToken) {
     if (refreshToken) {
-        await (0, database_js_1.query)('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+        const tokenHash = (0, jwt_js_1.hashRefreshToken)(refreshToken);
+        await (0, database_js_1.query)('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
     }
 }
 async function changeUserPassword(userId, currentPassword, newPassword) {

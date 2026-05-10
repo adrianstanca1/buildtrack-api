@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { query, pool } from '../config/database.js';
-import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
+import { generateAccessToken, generateRefreshToken, hashRefreshToken } from '../utils/jwt.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 
 export interface AuthResult {
@@ -34,9 +34,10 @@ export async function registerUser(data: {
   const refreshToken = generateRefreshToken(payload);
 
   const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const tokenHash = hashRefreshToken(refreshToken);
   await query(
-    'INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)',
-    [uuidv4(), userId, refreshToken, refreshExpiry]
+    'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+    [uuidv4(), userId, tokenHash, refreshExpiry]
   );
 
   const user = await query(
@@ -64,9 +65,10 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   const refreshToken = generateRefreshToken(payload);
 
   const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const tokenHash = hashRefreshToken(refreshToken);
   await query(
-    'INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)',
-    [uuidv4(), user.id, refreshToken, refreshExpiry]
+    'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+    [uuidv4(), user.id, tokenHash, refreshExpiry]
   );
 
   return {
@@ -87,9 +89,10 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
   const { verifyRefreshToken } = await import('../utils/jwt.js');
   const decoded = verifyRefreshToken(refreshToken);
 
+  const tokenHash = hashRefreshToken(refreshToken);
   const tokenResult = await query(
-    'SELECT * FROM refresh_tokens WHERE token = $1 AND user_id = $2 AND expires_at > NOW()',
-    [refreshToken, decoded.userId]
+    'SELECT * FROM refresh_tokens WHERE token_hash = $1 AND user_id = $2 AND expires_at > NOW()',
+    [tokenHash, decoded.userId]
   );
 
   if (tokenResult.rows.length === 0) throw new Error('INVALID_REFRESH_TOKEN');
@@ -98,11 +101,12 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
   const newAccessToken = generateAccessToken(payload);
   const newRefreshToken = generateRefreshToken(payload);
 
-  await query('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+  await query('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
   const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const newTokenHash = hashRefreshToken(newRefreshToken);
   await query(
-    'INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)',
-    [uuidv4(), decoded.userId, newRefreshToken, newExpiry]
+    'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+    [uuidv4(), decoded.userId, newTokenHash, newExpiry]
   );
 
   return { accessToken: newAccessToken, refreshToken: newRefreshToken };
@@ -110,7 +114,8 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
 
 export async function logoutUser(refreshToken?: string): Promise<void> {
   if (refreshToken) {
-    await query('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+    const tokenHash = hashRefreshToken(refreshToken);
+    await query('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
   }
 }
 
