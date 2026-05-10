@@ -42,6 +42,7 @@ import { exportsRouter } from './routes/exports.js';
 import { punchItemsRouter } from './routes/punch_items.js';
 import { sitePhotosRouter } from './routes/site_photos.js';
 import { delayNotesRouter } from './routes/delay_notes.js';
+import { meetingsRouter } from './routes/meetings.js';
 import { pool, initDatabase } from './config/database.js';
 
 dotenv.config();
@@ -150,6 +151,7 @@ app.use('/api/exports', exportsRouter);
 app.use('/api/punch-items', punchItemsRouter);
 app.use('/api/site-photos', sitePhotosRouter);
 app.use('/api/delay-notes', delayNotesRouter);
+app.use('/api/meetings', meetingsRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

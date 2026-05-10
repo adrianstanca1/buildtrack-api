@@ -190,6 +190,33 @@ export async function initDatabase() {
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )`,
+    `CREATE TABLE IF NOT EXISTS meetings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+      title VARCHAR(255) NOT NULL,
+      meeting_type VARCHAR(50) DEFAULT 'other' CHECK (meeting_type IN ('safety_toolbox', 'standup', 'client_walkthrough', 'change_order', 'quality_review', 'progress_review', 'closeout', 'other')),
+      scheduled_at TIMESTAMP,
+      duration_minutes INTEGER,
+      location VARCHAR(255),
+      agenda TEXT,
+      notes TEXT,
+      status VARCHAR(20) DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')),
+      created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS meeting_attendees (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      meeting_id UUID REFERENCES meetings(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      role VARCHAR(100),
+      email VARCHAR(255),
+      present BOOLEAN DEFAULT FALSE,
+      arrived_at TIMESTAMP,
+      left_at TIMESTAMP,
+      signature_url TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
   ];
 
   for (const sql of tables) {
@@ -210,6 +237,11 @@ export async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_team_members_project ON team_members(project_id)',
+    'CREATE INDEX IF NOT EXISTS idx_meetings_project ON meetings(project_id)',
+    'CREATE INDEX IF NOT EXISTS idx_meetings_type ON meetings(meeting_type)',
+    'CREATE INDEX IF NOT EXISTS idx_meetings_status ON meetings(status)',
+    'CREATE INDEX IF NOT EXISTS idx_meetings_scheduled ON meetings(scheduled_at)',
+    'CREATE INDEX IF NOT EXISTS idx_meeting_attendees_meeting ON meeting_attendees(meeting_id)',
   ];
 
   for (const sql of indexes) {
