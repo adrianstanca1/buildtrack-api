@@ -31,6 +31,8 @@ import { timesheetsRouter } from './routes/timesheets.js';
 import { dailyReportsRouter } from './routes/daily_reports.js';
 import { teamMembersRouter } from './routes/team_members.js';
 import { rfisRouter } from './routes/rfis.js';
+import { drawingsRouter } from './routes/drawings.js';
+import { invoicesRouter } from './routes/invoices.js';
 import { pool, initDatabase } from './config/database.js';
 
 dotenv.config();
@@ -128,6 +130,8 @@ app.use('/api/timesheets', timesheetsRouter);
 app.use('/api/daily-reports', dailyReportsRouter);
 app.use('/api/team-members', teamMembersRouter);
 app.use('/api/rfis', rfisRouter);
+app.use('/api/drawings', drawingsRouter);
+app.use('/api/invoices', invoicesRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
