@@ -47,6 +47,10 @@ const exports_js_1 = require("./routes/exports.js");
 const punch_items_js_1 = require("./routes/punch_items.js");
 const site_photos_js_1 = require("./routes/site_photos.js");
 const delay_notes_js_1 = require("./routes/delay_notes.js");
+const meetings_js_1 = require("./routes/meetings.js");
+const purchase_orders_js_1 = require("./routes/purchase_orders.js");
+const equipment_js_1 = require("./routes/equipment.js");
+const materials_js_1 = require("./routes/materials.js");
 const database_js_1 = require("./config/database.js");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -145,6 +149,10 @@ app.use('/api/exports', exports_js_1.exportsRouter);
 app.use('/api/punch-items', punch_items_js_1.punchItemsRouter);
 app.use('/api/site-photos', site_photos_js_1.sitePhotosRouter);
 app.use('/api/delay-notes', delay_notes_js_1.delayNotesRouter);
+app.use('/api/meetings', meetings_js_1.meetingsRouter);
+app.use('/api/purchase-orders', purchase_orders_js_1.purchaseOrdersRouter);
+app.use('/api/equipment', equipment_js_1.equipmentRouter);
+app.use('/api/materials', materials_js_1.materialsRouter);
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
 // ─── 404 Handler ──────────────────────────────────────────────────────

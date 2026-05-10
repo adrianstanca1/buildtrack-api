@@ -327,6 +327,35 @@ export async function initDatabase() {
       notes TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
+    `CREATE TABLE IF NOT EXISTS change_orders (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+      project_name VARCHAR(255),
+      co_number VARCHAR(50) NOT NULL UNIQUE,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      reason VARCHAR(255),
+      type VARCHAR(50) DEFAULT 'scope' CHECK (type IN ('scope', 'price', 'time', 'design', 'other')),
+      status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'submitted', 'under_review', 'approved', 'rejected', 'withdrawn')),
+      requested_by VARCHAR(255),
+      requested_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      requested_date DATE,
+      original_cost DECIMAL(12,2),
+      proposed_cost DECIMAL(12,2),
+      original_schedule_days INTEGER,
+      proposed_schedule_days INTEGER,
+      impact_cost DECIMAL(12,2) GENERATED ALWAYS AS (COALESCE(proposed_cost, 0) - COALESCE(original_cost, 0)) STORED,
+      impact_days INTEGER GENERATED ALWAYS AS (COALESCE(proposed_schedule_days, 0) - COALESCE(original_schedule_days, 0)) STORED,
+      reviewed_by VARCHAR(255),
+      reviewed_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      reviewed_date DATE,
+      approved_by VARCHAR(255),
+      approved_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      approved_date DATE,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
   ];
 
   for (const sql of tables) {
@@ -368,6 +397,10 @@ export async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_materials_category ON materials(category)',
     'CREATE INDEX IF NOT EXISTS idx_materials_name ON materials(name)',
     'CREATE INDEX IF NOT EXISTS idx_material_deliveries_material ON material_deliveries(material_id)',
+    'CREATE INDEX IF NOT EXISTS idx_change_orders_project ON change_orders(project_id)',
+    'CREATE INDEX IF NOT EXISTS idx_change_orders_status ON change_orders(status)',
+    'CREATE INDEX IF NOT EXISTS idx_change_orders_type ON change_orders(type)',
+    'CREATE INDEX IF NOT EXISTS idx_change_orders_number ON change_orders(co_number)',
   ];
 
   for (const sql of indexes) {
