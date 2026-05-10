@@ -83,9 +83,12 @@ function requireRole(...roles) {
 }
 function optionalAuth(req, res, next) {
     // Try to authenticate but don't fail if no token
-    authenticateToken(req, res, () => {
-        // Reset user if auth failed (so req.user stays undefined)
+    authenticateToken(req, res, (err) => {
+        if (err) {
+            // Auth failed — clear user and continue as anonymous
+            delete req.user;
+        }
         next();
-    }).catch(() => next());
+    });
 }
 //# sourceMappingURL=auth.js.map
