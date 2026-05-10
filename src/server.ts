@@ -85,6 +85,11 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Health check at /api/health too (for nginx proxy consistency)
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', service: 'buildtrack-api', timestamp: new Date().toISOString() });
+});
+
 // ─── API Routes ─────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
 app.use('/api/projects', projectsRouter);
@@ -171,7 +176,3 @@ process.on('SIGTERM', async () => {
 
 export { io };
 
-// Health check at /api/health too (for nginx proxy consistency)
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'buildtrack-api', timestamp: new Date().toISOString() });
-});

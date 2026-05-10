@@ -82,6 +82,10 @@ app.use('/api/docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.de
 app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+// Health check at /api/health too (for nginx proxy consistency)
+app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', service: 'buildtrack-api', timestamp: new Date().toISOString() });
+});
 // ─── API Routes ─────────────────────────────────────────────────────────
 app.use('/api/auth', auth_js_1.authRouter);
 app.use('/api/projects', projects_js_1.projectsRouter);
@@ -152,9 +156,5 @@ process.on('SIGTERM', async () => {
         console.log('[Server] HTTP server closed');
         process.exit(0);
     });
-});
-// Health check at /api/health too (for nginx proxy consistency)
-app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', service: 'buildtrack-api', timestamp: new Date().toISOString() });
 });
 //# sourceMappingURL=server.js.map
