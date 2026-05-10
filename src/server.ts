@@ -70,6 +70,21 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// ─── Auth Rate Limiting (stricter) ──────────────────────────────────
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per window
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      success: false,
+      error: { message: 'Too many attempts. Please try again later.', code: 'RATE_LIMITED' },
+    });
+  },
+});
+
 // ─── Logging & Performance ──────────────────────────────────────────────
 app.use(requestLogger);
 app.use(performanceMiddleware);
@@ -91,7 +106,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ─── API Routes ─────────────────────────────────────────────────────────
-app.use('/api/auth', authRouter);
+app.use('/api/auth', authLimiter, authRouter);
 app.use('/api/projects', projectsRouter);
 app.use('/api/tasks', tasksRouter);
 app.use('/api/workers', workersRouter);

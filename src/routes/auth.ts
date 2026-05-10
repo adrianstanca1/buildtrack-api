@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { query, pool } from '../config/database.js';
 import { validate } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
+import { generateAccessToken, generateRefreshToken, hashRefreshToken } from '../utils/jwt.js';
 import { hashPassword, comparePassword, validatePassword } from '../utils/password.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import { logger } from '../utils/logger.js';
@@ -92,9 +92,10 @@ router.post('/register', validate(registerSchema), async (req, res) => {
 
     // Store refresh token
     const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const tokenHash = hashRefreshToken(refreshToken);
     await query(
-      'INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)',
-      [uuidv4(), userId, refreshToken, refreshExpiry]
+      'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+      [uuidv4(), userId, tokenHash, refreshExpiry]
     );
 
     // Set cookies
@@ -182,9 +183,10 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     const refreshToken = generateRefreshToken(payload);
 
     const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const tokenHash = hashRefreshToken(refreshToken);
     await query(
-      'INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)',
-      [uuidv4(), user.id, refreshToken, refreshExpiry]
+      'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+      [uuidv4(), user.id, tokenHash, refreshExpiry]
     );
 
     res.cookie('accessToken', accessToken, {
@@ -238,10 +240,11 @@ router.post('/refresh', async (req, res) => {
       return errorResponse(res, 'Invalid refresh token', 'UNAUTHORIZED', 401);
     }
 
-    // Check if refresh token exists in database
+    // Check if refresh token exists in database (using hash)
+    const tokenHash = hashRefreshToken(refreshToken);
     const tokenResult = await query(
-      'SELECT * FROM refresh_tokens WHERE token = $1 AND user_id = $2 AND expires_at > NOW()',
-      [refreshToken, decoded.userId]
+      'SELECT * FROM refresh_tokens WHERE token_hash = $1 AND user_id = $2 AND expires_at > NOW()',
+      [tokenHash, decoded.userId]
     );
 
     if (tokenResult.rows.length === 0) {
@@ -253,12 +256,13 @@ router.post('/refresh', async (req, res) => {
     const newAccessToken = generateAccessToken(payload);
     const newRefreshToken = generateRefreshToken(payload);
 
-    // Delete old token, insert new
-    await query('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+    // Delete old token (using hash), insert new
+    await query('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
     const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const newTokenHash = hashRefreshToken(newRefreshToken);
     await query(
-      'INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)',
-      [uuidv4(), decoded.userId, newRefreshToken, newExpiry]
+      'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+      [uuidv4(), decoded.userId, newTokenHash, newExpiry]
     );
 
     res.cookie('accessToken', newAccessToken, {
@@ -286,7 +290,8 @@ router.post('/logout', async (req, res) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
     if (refreshToken) {
-      await query('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+      const tokenHash = hashRefreshToken(refreshToken);
+      await query('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
     }
 
     res.clearCookie('accessToken');

@@ -81,7 +81,8 @@ router.post('/register', (0, validate_js_1.validate)(registerSchema), async (req
         const refreshToken = (0, jwt_js_1.generateRefreshToken)(payload);
         // Store refresh token
         const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), userId, refreshToken, refreshExpiry]);
+        const tokenHash = (0, jwt_js_1.hashRefreshToken)(refreshToken);
+        await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), userId, tokenHash, refreshExpiry]);
         // Set cookies
         res.cookie('accessToken', accessToken, {
             httpOnly: true,
@@ -152,7 +153,8 @@ router.post('/login', (0, validate_js_1.validate)(loginSchema), async (req, res)
         const accessToken = (0, jwt_js_1.generateAccessToken)(payload);
         const refreshToken = (0, jwt_js_1.generateRefreshToken)(payload);
         const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), user.id, refreshToken, refreshExpiry]);
+        const tokenHash = (0, jwt_js_1.hashRefreshToken)(refreshToken);
+        await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), user.id, tokenHash, refreshExpiry]);
         res.cookie('accessToken', accessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -201,8 +203,9 @@ router.post('/refresh', async (req, res) => {
         catch {
             return (0, response_js_1.errorResponse)(res, 'Invalid refresh token', 'UNAUTHORIZED', 401);
         }
-        // Check if refresh token exists in database
-        const tokenResult = await (0, database_js_1.query)('SELECT * FROM refresh_tokens WHERE token = $1 AND user_id = $2 AND expires_at > NOW()', [refreshToken, decoded.userId]);
+        // Check if refresh token exists in database (using hash)
+        const tokenHash = (0, jwt_js_1.hashRefreshToken)(refreshToken);
+        const tokenResult = await (0, database_js_1.query)('SELECT * FROM refresh_tokens WHERE token_hash = $1 AND user_id = $2 AND expires_at > NOW()', [tokenHash, decoded.userId]);
         if (tokenResult.rows.length === 0) {
             return (0, response_js_1.errorResponse)(res, 'Invalid or expired refresh token', 'UNAUTHORIZED', 401);
         }
@@ -210,10 +213,11 @@ router.post('/refresh', async (req, res) => {
         const payload = { userId: decoded.userId, email: decoded.email, role: decoded.role };
         const newAccessToken = (0, jwt_js_1.generateAccessToken)(payload);
         const newRefreshToken = (0, jwt_js_1.generateRefreshToken)(payload);
-        // Delete old token, insert new
-        await (0, database_js_1.query)('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+        // Delete old token (using hash), insert new
+        await (0, database_js_1.query)('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
         const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), decoded.userId, newRefreshToken, newExpiry]);
+        const newTokenHash = (0, jwt_js_1.hashRefreshToken)(newRefreshToken);
+        await (0, database_js_1.query)('INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)', [(0, uuid_1.v4)(), decoded.userId, newTokenHash, newExpiry]);
         res.cookie('accessToken', newAccessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -238,7 +242,8 @@ router.post('/logout', async (req, res) => {
     try {
         const refreshToken = req.cookies?.refreshToken;
         if (refreshToken) {
-            await (0, database_js_1.query)('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+            const tokenHash = (0, jwt_js_1.hashRefreshToken)(refreshToken);
+            await (0, database_js_1.query)('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
         }
         res.clearCookie('accessToken');
         res.clearCookie('refreshToken');

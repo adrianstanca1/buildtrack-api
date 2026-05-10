@@ -70,6 +70,20 @@ const limiter = (0, express_rate_limit_1.default)({
     },
 });
 app.use('/api/', limiter);
+// ─── Auth Rate Limiting (stricter) ──────────────────────────────────
+const authLimiter = (0, express_rate_limit_1.default)({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // 5 attempts per window
+    skipSuccessfulRequests: true,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, res) => {
+        res.status(429).json({
+            success: false,
+            error: { message: 'Too many attempts. Please try again later.', code: 'RATE_LIMITED' },
+        });
+    },
+});
 // ─── Logging & Performance ──────────────────────────────────────────────
 app.use(requestLogger_js_1.requestLogger);
 app.use(performance_js_1.performanceMiddleware);
@@ -87,7 +101,7 @@ app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', service: 'buildtrack-api', timestamp: new Date().toISOString() });
 });
 // ─── API Routes ─────────────────────────────────────────────────────────
-app.use('/api/auth', auth_js_1.authRouter);
+app.use('/api/auth', authLimiter, auth_js_1.authRouter);
 app.use('/api/projects', projects_js_1.projectsRouter);
 app.use('/api/tasks', tasks_js_1.tasksRouter);
 app.use('/api/workers', workers_js_1.workersRouter);

@@ -8,11 +8,19 @@ exports.generateRefreshToken = generateRefreshToken;
 exports.verifyAccessToken = verifyAccessToken;
 exports.verifyRefreshToken = verifyRefreshToken;
 exports.decodeToken = decodeToken;
+exports.hashRefreshToken = hashRefreshToken;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const JWT_SECRET = process.env.JWT_SECRET || 'buildtrack-dev-secret';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'buildtrack-dev-refresh-secret';
+const crypto_1 = __importDefault(require("crypto"));
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const ACCESS_EXPIRY = process.env.JWT_ACCESS_EXPIRY || '15m';
 const REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
+if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required');
+}
+if (!JWT_REFRESH_SECRET) {
+    throw new Error('JWT_REFRESH_SECRET environment variable is required');
+}
 function generateAccessToken(payload) {
     return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: ACCESS_EXPIRY });
 }
@@ -32,5 +40,9 @@ function decodeToken(token) {
     catch {
         return null;
     }
+}
+/** Hash a refresh token for secure storage (SHA-256). */
+function hashRefreshToken(token) {
+    return crypto_1.default.createHash('sha256').update(token).digest('hex');
 }
 //# sourceMappingURL=jwt.js.map
