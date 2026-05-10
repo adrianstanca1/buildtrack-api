@@ -38,6 +38,7 @@ import { riskDashboardRouter } from './routes/risk_dashboard.js';
 import { projectTimelineRouter } from './routes/project_timeline.js';
 import { linksRouter } from './routes/links.js';
 import { guestsRouter } from './routes/guests.js';
+import { exportsRouter } from './routes/exports.js';
 import { pool, initDatabase } from './config/database.js';
 
 dotenv.config();
@@ -142,6 +143,7 @@ app.use('/api/risk-dashboard', riskDashboardRouter);
 app.use('/api/projects/:projectId/timeline', projectTimelineRouter);
 app.use('/api/links', linksRouter);
 app.use('/api/guests', guestsRouter);
+app.use('/api/exports', exportsRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

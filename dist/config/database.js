@@ -180,6 +180,20 @@ async function initDatabase() {
       expires_at TIMESTAMP NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
+        `CREATE TABLE IF NOT EXISTS team_members (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      trade VARCHAR(100),
+      cscs_card VARCHAR(100),
+      hourly_rate DECIMAL(10,2) DEFAULT 0,
+      status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'on-leave')),
+      phone VARCHAR(50),
+      email VARCHAR(255),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
     ];
     for (const sql of tables) {
         await query(sql);
@@ -196,6 +210,8 @@ async function initDatabase() {
         'CREATE INDEX IF NOT EXISTS idx_activity_user ON activity_logs(user_id)',
         'CREATE INDEX IF NOT EXISTS idx_activity_project ON activity_logs(project_id)',
         'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id)',
+        'CREATE INDEX IF NOT EXISTS idx_team_members_project ON team_members(project_id)',
     ];
     for (const sql of indexes) {
         await query(sql);
