@@ -14,7 +14,7 @@ const exportSchema = z.object({ id: z.string().uuid() });
 router.get('/projects/:id/closeout', authenticateToken, validateParams(exportSchema), async (req, res) => {
   try {
     const userId = req.user!.id;
-    const projectId = req.params.id;
+    const projectId = req.params.id as string;
 
     const projectCheck = await query(
       'SELECT id, name FROM projects WHERE id = $1 AND user_id = $2',
@@ -46,9 +46,9 @@ router.get('/projects/:id/closeout', authenticateToken, validateParams(exportSch
 router.get('/projects/:id/dispute/:recordType/:recordId', authenticateToken, validateParams(exportSchema), async (req, res) => {
   try {
     const userId = req.user!.id;
-    const projectId = req.params.id;
-    const recordType = req.params.recordType;
-    const recordId = req.params.recordId;
+    const projectId = req.params.id as string;
+    const recordType = req.params.recordType as string;
+    const recordId = req.params.recordId as string;
 
     const validTypes = ['rfi', 'submittal', 'drawing', 'defect', 'daily-report', 'permit'];
     if (!validTypes.includes(recordType)) {
@@ -89,8 +89,8 @@ router.get('/projects/:id/dispute/:recordType/:recordId', authenticateToken, val
 router.get('/projects/:id/csv/:table', authenticateToken, validateParams(exportSchema), async (req, res) => {
   try {
     const userId = req.user!.id;
-    const projectId = req.params.id;
-    const tableName = req.params.table;
+    const projectId = req.params.id as string;
+    const tableName = req.params.table as string;
 
     const projectCheck = await query(
       'SELECT id FROM projects WHERE id = $1 AND user_id = $2',

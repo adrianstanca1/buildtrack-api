@@ -60,7 +60,7 @@ router.delete('/:id', authenticateToken, validateParams(linkIdSchema), async (re
       return errorResponse(res, 'Link not found', 'NOT_FOUND', 404);
     }
 
-    await unlinkRecord(req.params.id);
+    await unlinkRecord(req.params.id as string);
     successResponse(res, { message: 'Link deleted' });
   } catch (err) {
     console.error('[Links] Delete error:', err);
@@ -71,7 +71,7 @@ router.delete('/:id', authenticateToken, validateParams(linkIdSchema), async (re
 // ─── Get Linked Records ───────────────────────────────────────────────
 router.get('/records/:type/:id', authenticateToken, validateParams(recordParamsSchema), async (req, res) => {
   try {
-    const { type, id } = req.params;
+    const { type, id } = req.params as { type: string; id: string };
     const links = await getLinkedRecords(type as RecordType, id);
     successResponse(res, links);
   } catch (err) {
@@ -83,7 +83,7 @@ router.get('/records/:type/:id', authenticateToken, validateParams(recordParamsS
 // ─── Get Activity Graph ───────────────────────────────────────────────
 router.get('/graph/:type/:id', authenticateToken, validateParams(recordParamsSchema), async (req, res) => {
   try {
-    const { type, id } = req.params;
+    const { type, id } = req.params as { type: string; id: string };
     const graph = await getActivityGraph(type as RecordType, id);
 
     // Convert Map to plain object for JSON serialization
