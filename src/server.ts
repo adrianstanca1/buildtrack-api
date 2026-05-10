@@ -44,6 +44,7 @@ import { sitePhotosRouter } from './routes/site_photos.js';
 import { delayNotesRouter } from './routes/delay_notes.js';
 import { meetingsRouter } from './routes/meetings.js';
 import { purchaseOrdersRouter } from './routes/purchase_orders.js';
+import { equipmentRouter } from './routes/equipment.js';
 import { pool, initDatabase } from './config/database.js';
 
 dotenv.config();
@@ -154,6 +155,7 @@ app.use('/api/site-photos', sitePhotosRouter);
 app.use('/api/delay-notes', delayNotesRouter);
 app.use('/api/meetings', meetingsRouter);
 app.use('/api/purchase-orders', purchaseOrdersRouter);
+app.use('/api/equipment', equipmentRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
