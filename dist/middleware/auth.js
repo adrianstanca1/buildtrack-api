@@ -8,21 +8,17 @@ exports.requireRole = requireRole;
 exports.optionalAuth = optionalAuth;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const database_js_1 = require("../config/database.js");
+const redis_js_1 = require("../config/redis.js");
 async function authenticateToken(req, res, next) {
     try {
-        // Check Authorization header
         const authHeader = req.headers['authorization'];
-        const token = authHeader?.split(' ')[1]; // Bearer TOKEN
+        const token = authHeader?.split(' ')[1] || req.cookies?.accessToken;
         if (!token) {
-            // Also check cookie
-            const cookieToken = req.cookies?.accessToken;
-            if (!cookieToken) {
-                res.status(401).json({
-                    success: false,
-                    error: { message: 'Access token required', code: 'UNAUTHORIZED' },
-                });
-                return;
-            }
+            res.status(401).json({
+                success: false,
+                error: { message: 'Access token required', code: 'UNAUTHORIZED' },
+            });
+            return;
         }
         const secret = process.env.JWT_SECRET;
         if (!secret) {
@@ -32,23 +28,31 @@ async function authenticateToken(req, res, next) {
             });
             return;
         }
-        const decoded = jsonwebtoken_1.default.verify(token || req.cookies?.accessToken, secret);
-        // Verify user still exists in database
-        const result = await database_js_1.pool.query('SELECT id, email, role, first_name, last_name FROM users WHERE id = $1', [decoded.userId]);
-        if (result.rows.length === 0) {
-            res.status(401).json({
-                success: false,
-                error: { message: 'User not found', code: 'UNAUTHORIZED' },
-            });
-            return;
+        const decoded = jsonwebtoken_1.default.verify(token, secret);
+        const userId = decoded.userId;
+        // Try Redis cache first (5-minute TTL)
+        let user = await (0, redis_js_1.getCachedUser)(userId);
+        if (!user) {
+            // Cache miss — query database
+            const result = await database_js_1.pool.query('SELECT id, email, role, first_name, last_name FROM users WHERE id = $1', [userId]);
+            if (result.rows.length === 0) {
+                res.status(401).json({
+                    success: false,
+                    error: { message: 'User not found', code: 'UNAUTHORIZED' },
+                });
+                return;
+            }
+            user = {
+                id: result.rows[0].id,
+                email: result.rows[0].email,
+                role: result.rows[0].role,
+                firstName: result.rows[0].first_name,
+                lastName: result.rows[0].last_name,
+            };
+            // Cache for 5 minutes
+            await (0, redis_js_1.setCachedUser)(userId, user, 300);
         }
-        req.user = {
-            id: result.rows[0].id,
-            email: result.rows[0].email,
-            role: result.rows[0].role,
-            firstName: result.rows[0].first_name,
-            lastName: result.rows[0].last_name,
-        };
+        req.user = user;
         next();
     }
     catch (err) {
@@ -67,17 +71,10 @@ async function authenticateToken(req, res, next) {
 }
 function requireRole(...roles) {
     return (req, res, next) => {
-        if (!req.user) {
-            res.status(401).json({
-                success: false,
-                error: { message: 'Authentication required', code: 'UNAUTHORIZED' },
-            });
-            return;
-        }
-        if (!roles.includes(req.user.role)) {
+        if (!req.user || !roles.includes(req.user.role)) {
             res.status(403).json({
                 success: false,
-                error: { message: 'Insufficient permissions', code: 'FORBIDDEN' },
+                error: { message: 'Forbidden: insufficient permissions', code: 'FORBIDDEN' },
             });
             return;
         }
@@ -85,29 +82,10 @@ function requireRole(...roles) {
     };
 }
 function optionalAuth(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader?.split(' ')[1];
-    const cookieToken = req.cookies?.accessToken;
-    if (!token && !cookieToken) {
+    // Try to authenticate but don't fail if no token
+    authenticateToken(req, res, () => {
+        // Reset user if auth failed (so req.user stays undefined)
         next();
-        return;
-    }
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-        next();
-        return;
-    }
-    try {
-        const decoded = jsonwebtoken_1.default.verify(token || cookieToken, secret);
-        req.user = {
-            id: decoded.userId,
-            email: decoded.email,
-            role: decoded.role,
-        };
-    }
-    catch {
-        // Invalid token, proceed without user
-    }
-    next();
+    }).catch(() => next());
 }
 //# sourceMappingURL=auth.js.map

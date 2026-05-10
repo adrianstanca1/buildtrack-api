@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/database.js';
+import { getCachedUser, setCachedUser } from '../config/redis.js';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -14,20 +15,15 @@ export interface AuthenticatedRequest extends Request {
 
 export async function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    // Check Authorization header
     const authHeader = req.headers['authorization'];
-    const token = authHeader?.split(' ')[1]; // Bearer TOKEN
+    const token = authHeader?.split(' ')[1] || req.cookies?.accessToken;
 
     if (!token) {
-      // Also check cookie
-      const cookieToken = req.cookies?.accessToken;
-      if (!cookieToken) {
-        res.status(401).json({
-          success: false,
-          error: { message: 'Access token required', code: 'UNAUTHORIZED' },
-        });
-        return;
-      }
+      res.status(401).json({
+        success: false,
+        error: { message: 'Access token required', code: 'UNAUTHORIZED' },
+      });
+      return;
     }
 
     const secret = process.env.JWT_SECRET;
@@ -39,30 +35,40 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
       return;
     }
 
-    const decoded = jwt.verify(token || req.cookies?.accessToken, secret) as any;
+    const decoded = jwt.verify(token, secret) as any;
+    const userId = decoded.userId;
 
-    // Verify user still exists in database
-    const result = await pool.query(
-      'SELECT id, email, role, first_name, last_name FROM users WHERE id = $1',
-      [decoded.userId]
-    );
+    // Try Redis cache first (5-minute TTL)
+    let user = await getCachedUser(userId);
 
-    if (result.rows.length === 0) {
-      res.status(401).json({
-        success: false,
-        error: { message: 'User not found', code: 'UNAUTHORIZED' },
-      });
-      return;
+    if (!user) {
+      // Cache miss — query database
+      const result = await pool.query(
+        'SELECT id, email, role, first_name, last_name FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        res.status(401).json({
+          success: false,
+          error: { message: 'User not found', code: 'UNAUTHORIZED' },
+        });
+        return;
+      }
+
+      user = {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        role: result.rows[0].role,
+        firstName: result.rows[0].first_name,
+        lastName: result.rows[0].last_name,
+      };
+
+      // Cache for 5 minutes
+      await setCachedUser(userId, user, 300);
     }
 
-    req.user = {
-      id: result.rows[0].id,
-      email: result.rows[0].email,
-      role: result.rows[0].role,
-      firstName: result.rows[0].first_name,
-      lastName: result.rows[0].last_name,
-    };
-
+    req.user = user;
     next();
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) {
@@ -81,17 +87,10 @@ export async function authenticateToken(req: AuthenticatedRequest, res: Response
 
 export function requireRole(...roles: string[]) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      res.status(401).json({
-        success: false,
-        error: { message: 'Authentication required', code: 'UNAUTHORIZED' },
-      });
-      return;
-    }
-    if (!roles.includes(req.user.role)) {
+    if (!req.user || !roles.includes(req.user.role)) {
       res.status(403).json({
         success: false,
-        error: { message: 'Insufficient permissions', code: 'FORBIDDEN' },
+        error: { message: 'Forbidden: insufficient permissions', code: 'FORBIDDEN' },
       });
       return;
     }
@@ -100,30 +99,9 @@ export function requireRole(...roles: string[]) {
 }
 
 export function optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader?.split(' ')[1];
-  const cookieToken = req.cookies?.accessToken;
-
-  if (!token && !cookieToken) {
+  // Try to authenticate but don't fail if no token
+  authenticateToken(req, res, () => {
+    // Reset user if auth failed (so req.user stays undefined)
     next();
-    return;
-  }
-
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    next();
-    return;
-  }
-
-  try {
-    const decoded = jwt.verify(token || cookieToken, secret) as any;
-    req.user = {
-      id: decoded.userId,
-      email: decoded.email,
-      role: decoded.role,
-    };
-  } catch {
-    // Invalid token, proceed without user
-  }
-  next();
+  }).catch(() => next());
 }

@@ -8,6 +8,8 @@ import { generateAccessToken, generateRefreshToken, hashRefreshToken } from '../
 import { hashPassword, comparePassword, validatePassword } from '../utils/password.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import { logger } from '../utils/logger.js';
+import { auditLog } from '../utils/audit.js';
+import { invalidateUserCache } from '../config/redis.js';
 
 const router = Router();
 
@@ -61,25 +63,30 @@ const changePasswordSchema = z.object({
  *         description: Email already exists
  */
 router.post('/register', validate(registerSchema), async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     const { email, password, firstName, lastName, companyName } = req.body;
 
     // Validate password strength
     const pwCheck = validatePassword(password);
     if (!pwCheck.valid) {
+      await client.query('ROLLBACK');
       return errorResponse(res, pwCheck.errors[0], 'VALIDATION_ERROR', 400, pwCheck.errors);
     }
 
     // Check if user exists
-    const existing = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    const existing = await client.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
     if (existing.rows.length > 0) {
+      await client.query('ROLLBACK');
       return errorResponse(res, 'Email already registered', 'CONFLICT', 409);
     }
 
     const passwordHash = await hashPassword(password);
     const userId = uuidv4();
 
-    await query(
+    await client.query(
       `INSERT INTO users (id, email, password_hash, first_name, last_name, company_name, subscription_tier, subscription_status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [userId, email.toLowerCase(), passwordHash, firstName || null, lastName || null, companyName || null, 'free', 'inactive']
@@ -93,7 +100,7 @@ router.post('/register', validate(registerSchema), async (req, res) => {
     // Store refresh token
     const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const tokenHash = hashRefreshToken(refreshToken);
-    await query(
+    await client.query(
       'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [uuidv4(), userId, tokenHash, refreshExpiry]
     );
@@ -112,18 +119,39 @@ router.post('/register', validate(registerSchema), async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    const result = await query(
+    const result = await client.query(
       'SELECT id, email, first_name, last_name, role, company_name, subscription_tier, subscription_status, created_at FROM users WHERE id = $1',
       [userId]
     );
+
+    await client.query('COMMIT');
+
+    await auditLog({
+      userId,
+      eventType: 'REGISTER',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      success: true,
+      details: { email: email.toLowerCase() },
+    });
 
     successResponse(res, {
       user: result.rows[0],
       accessToken,
     }, 201);
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('[Auth] Register error:', err);
+    await auditLog({
+      eventType: 'REGISTER',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      success: false,
+      details: { error: String(err) },
+    });
     errorResponse(res, 'Failed to create account', 'INTERNAL_ERROR', 500);
+  } finally {
+    client.release();
   }
 });
 
@@ -163,6 +191,13 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     );
 
     if (result.rows.length === 0) {
+      await auditLog({
+        eventType: 'LOGIN',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        success: false,
+        details: { email: email.toLowerCase(), reason: 'user_not_found' },
+      });
       return errorResponse(res, 'Invalid email or password', 'UNAUTHORIZED', 401);
     }
 
@@ -170,6 +205,13 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     const validPassword = await comparePassword(password, user.password_hash);
 
     if (!validPassword) {
+      await auditLog({
+        eventType: 'LOGIN',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        success: false,
+        details: { email: user.email, reason: 'invalid_password' },
+      });
       return errorResponse(res, 'Invalid email or password', 'UNAUTHORIZED', 401);
     }
 
@@ -200,6 +242,15 @@ router.post('/login', validate(loginSchema), async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    await auditLog({
+      userId: user.id,
+      eventType: 'LOGIN',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      success: true,
+      details: { email: user.email },
     });
 
     successResponse(res, {
@@ -278,6 +329,15 @@ router.post('/refresh', async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
+    await auditLog({
+      userId: decoded.userId,
+      eventType: 'REFRESH',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      success: true,
+      details: { email: decoded.email },
+    });
+
     successResponse(res, { accessToken: newAccessToken });
   } catch (err) {
     console.error('[Auth] Refresh error:', err);
@@ -289,13 +349,33 @@ router.post('/refresh', async (req, res) => {
 router.post('/logout', async (req, res) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
+    let userId: string | null = null;
     if (refreshToken) {
       const tokenHash = hashRefreshToken(refreshToken);
+      const result = await query(
+        'SELECT user_id FROM refresh_tokens WHERE token_hash = $1',
+        [tokenHash]
+      );
+      if (result.rows.length > 0) {
+        userId = result.rows[0].user_id;
+      }
       await query('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
     }
 
     res.clearCookie('accessToken');
     res.clearCookie('refreshToken');
+
+    if (userId) {
+      await invalidateUserCache(userId);
+    }
+
+    await auditLog({
+      userId: userId || undefined,
+      eventType: 'LOGOUT',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      success: true,
+    });
 
     successResponse(res, { message: 'Logged out successfully' });
   } catch (err) {
@@ -348,6 +428,9 @@ router.put('/me', authenticateToken, async (req, res) => {
     const sql = `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`;
     const result = await query(sql, values);
 
+    // Invalidate cache since profile changed
+    await invalidateUserCache(userId);
+
     successResponse(res, result.rows[0]);
   } catch (err) {
     console.error('[Auth] Update me error:', err);
@@ -368,6 +451,14 @@ router.post('/change-password', authenticateToken, validate(changePasswordSchema
 
     const validCurrent = await comparePassword(currentPassword, userResult.rows[0].password_hash);
     if (!validCurrent) {
+      await auditLog({
+        userId,
+        eventType: 'CHANGE_PASSWORD',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        success: false,
+        details: { reason: 'invalid_current_password' },
+      });
       return errorResponse(res, 'Current password is incorrect', 'UNAUTHORIZED', 401);
     }
 
@@ -381,6 +472,15 @@ router.post('/change-password', authenticateToken, validate(changePasswordSchema
 
     // Revoke all refresh tokens
     await query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
+    await invalidateUserCache(userId);
+
+    await auditLog({
+      userId,
+      eventType: 'CHANGE_PASSWORD',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      success: true,
+    });
 
     successResponse(res, { message: 'Password changed successfully' });
   } catch (err) {
