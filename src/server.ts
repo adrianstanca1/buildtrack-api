@@ -33,6 +33,9 @@ import { teamMembersRouter } from './routes/team_members.js';
 import { rfisRouter } from './routes/rfis.js';
 import { drawingsRouter } from './routes/drawings.js';
 import { invoicesRouter } from './routes/invoices.js';
+import { submittalsRouter } from './routes/submittals.js';
+import { riskDashboardRouter } from './routes/risk_dashboard.js';
+import { projectTimelineRouter } from './routes/project_timeline.js';
 import { pool, initDatabase } from './config/database.js';
 
 dotenv.config();
@@ -132,6 +135,9 @@ app.use('/api/team-members', teamMembersRouter);
 app.use('/api/rfis', rfisRouter);
 app.use('/api/drawings', drawingsRouter);
 app.use('/api/invoices', invoicesRouter);
+app.use('/api/submittals', submittalsRouter);
+app.use('/api/risk-dashboard', riskDashboardRouter);
+app.use('/api/projects/:projectId/timeline', projectTimelineRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
