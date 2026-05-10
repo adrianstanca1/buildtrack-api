@@ -25,6 +25,10 @@ import { notificationsRouter } from './routes/notifications.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { adminRouter } from './routes/admin.js';
 import { uploadsRouter } from './routes/uploads.js';
+import { defectsRouter } from './routes/defects.js';
+import { permitsRouter } from './routes/permits.js';
+import { timesheetsRouter } from './routes/timesheets.js';
+import { dailyReportsRouter } from './routes/daily_reports.js';
 import { pool, initDatabase } from './config/database.js';
 
 dotenv.config();
@@ -116,6 +120,10 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/uploads', uploadsRouter);
+app.use('/api/defects', defectsRouter);
+app.use('/api/permits', permitsRouter);
+app.use('/api/timesheets', timesheetsRouter);
+app.use('/api/daily-reports', dailyReportsRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

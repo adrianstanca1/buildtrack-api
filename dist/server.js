@@ -30,6 +30,10 @@ const notifications_js_1 = require("./routes/notifications.js");
 const dashboard_js_1 = require("./routes/dashboard.js");
 const admin_js_1 = require("./routes/admin.js");
 const uploads_js_1 = require("./routes/uploads.js");
+const defects_js_1 = require("./routes/defects.js");
+const permits_js_1 = require("./routes/permits.js");
+const timesheets_js_1 = require("./routes/timesheets.js");
+const daily_reports_js_1 = require("./routes/daily_reports.js");
 const database_js_1 = require("./config/database.js");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -111,6 +115,10 @@ app.use('/api/notifications', notifications_js_1.notificationsRouter);
 app.use('/api/dashboard', dashboard_js_1.dashboardRouter);
 app.use('/api/admin', admin_js_1.adminRouter);
 app.use('/api/uploads', uploads_js_1.uploadsRouter);
+app.use('/api/defects', defects_js_1.defectsRouter);
+app.use('/api/permits', permits_js_1.permitsRouter);
+app.use('/api/timesheets', timesheets_js_1.timesheetsRouter);
+app.use('/api/daily-reports', daily_reports_js_1.dailyReportsRouter);
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
 // ─── 404 Handler ──────────────────────────────────────────────────────
