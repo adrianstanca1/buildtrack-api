@@ -130,4 +130,137 @@ router.get('/:id', authenticateToken, validateParams(dailyReportIdSchema), async
   }
 });
 
+// ─── Update Daily Report ──────────────────────────────────────────────────
+router.put('/:id', authenticateToken, validateParams(dailyReportIdSchema), validate(dailyReportSchema.partial()), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const userId = req.user!.id;
+    const reportId = req.params.id;
+
+    const check = await client.query(
+      `SELECT dr.id FROM daily_reports dr
+       JOIN projects p ON dr.project_id = p.id
+       WHERE dr.id = $1 AND p.user_id = $2`,
+      [reportId, userId]
+    );
+    if (check.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return errorResponse(res, 'Daily report not found', 'NOT_FOUND', 404);
+    }
+
+    if (req.body.projectId) {
+      const projectCheck = await client.query(
+        'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+        [req.body.projectId, userId]
+      );
+      if (projectCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return errorResponse(res, 'Project not found', 'NOT_FOUND', 404);
+      }
+    }
+
+    const mappings: Record<string, string> = {
+      projectId: 'project_id',
+      reportDate: 'report_date',
+      weather: 'weather',
+      temperature: 'temperature',
+      workersOnSite: 'workers_on_site',
+      workCompleted: 'work_completed',
+      materialsUsed: 'materials_used',
+      equipmentUsed: 'equipment_used',
+      issuesDelays: 'issues_delays',
+      safetyObservations: 'safety_observations',
+      nextDayPlan: 'next_day_plan',
+      photoUrls: 'photo_urls',
+      submittedBy: 'submitted_by',
+      status: 'status',
+    };
+
+    const updates: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    for (const [bodyKey, dbKey] of Object.entries(mappings)) {
+      if (req.body[bodyKey] !== undefined) {
+        updates.push(`${dbKey} = $${idx++}`);
+        values.push(req.body[bodyKey]);
+      }
+    }
+
+    if (updates.length === 0) {
+      await client.query('ROLLBACK');
+      return errorResponse(res, 'No fields to update', 'VALIDATION_ERROR', 400);
+    }
+
+    values.push(reportId);
+    const sql = `UPDATE daily_reports SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`;
+    const result = await client.query(sql, values);
+
+    await client.query('COMMIT');
+    successResponse(res, result.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[DailyReports] Update error:', err);
+    errorResponse(res, 'Failed to update daily report', 'INTERNAL_ERROR', 500);
+  } finally {
+    client.release();
+  }
+});
+
+// ─── Delete Daily Report ──────────────────────────────────────────────────
+router.delete('/:id', authenticateToken, validateParams(dailyReportIdSchema), async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const check = await query(
+      `SELECT dr.id FROM daily_reports dr
+       JOIN projects p ON dr.project_id = p.id
+       WHERE dr.id = $1 AND p.user_id = $2`,
+      [req.params.id, userId]
+    );
+    if (check.rows.length === 0) {
+      return errorResponse(res, 'Daily report not found', 'NOT_FOUND', 404);
+    }
+
+    await query('DELETE FROM daily_reports WHERE id = $1', [req.params.id]);
+    successResponse(res, { message: 'Daily report deleted' });
+  } catch (err) {
+    console.error('[DailyReports] Delete error:', err);
+    errorResponse(res, 'Failed to delete daily report', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// ─── Change Daily Report Status ───────────────────────────────────────────
+router.patch('/:id/status', authenticateToken, validateParams(dailyReportIdSchema), async (req, res) => {
+  const statusSchema = z.object({
+    status: z.enum(['draft', 'submitted', 'approved']),
+  });
+  const parsed = statusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return errorResponse(res, 'Invalid status value', 'VALIDATION_ERROR', 400);
+  }
+
+  try {
+    const userId = req.user!.id;
+    const check = await query(
+      `SELECT dr.id FROM daily_reports dr
+       JOIN projects p ON dr.project_id = p.id
+       WHERE dr.id = $1 AND p.user_id = $2`,
+      [req.params.id, userId]
+    );
+    if (check.rows.length === 0) {
+      return errorResponse(res, 'Daily report not found', 'NOT_FOUND', 404);
+    }
+
+    const result = await query(
+      'UPDATE daily_reports SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [parsed.data.status, req.params.id]
+    );
+    successResponse(res, result.rows[0]);
+  } catch (err) {
+    console.error('[DailyReports] Status change error:', err);
+    errorResponse(res, 'Failed to update status', 'INTERNAL_ERROR', 500);
+  }
+});
+
 export { router as dailyReportsRouter };
