@@ -46,4 +46,14 @@ router.get('/activity', auth_js_1.authenticateToken, async (req, res) => {
         (0, response_js_1.errorResponse)(res, 'Failed to fetch activity', 'INTERNAL_ERROR', 500);
     }
 });
+// Root route - redirect to stats or return summary
+router.get('/', (_req, res) => {
+    res.json({
+        success: true,
+        data: {
+            endpoints: ['/stats', '/activity'],
+            description: 'Dashboard data endpoints'
+        }
+    });
+});
 //# sourceMappingURL=dashboard.js.map

@@ -55,3 +55,14 @@ router.get('/activity', authenticateToken, async (req, res) => {
 });
 
 export { router as dashboardRouter };
+
+// Root route - redirect to stats or return summary
+router.get('/', (_req, res) => {
+  res.json({
+    success: true,
+    data: {
+      endpoints: ['/stats', '/activity'],
+      description: 'Dashboard data endpoints'
+    }
+  });
+});
