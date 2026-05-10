@@ -29,6 +29,7 @@ import { defectsRouter } from './routes/defects.js';
 import { permitsRouter } from './routes/permits.js';
 import { timesheetsRouter } from './routes/timesheets.js';
 import { dailyReportsRouter } from './routes/daily_reports.js';
+import { teamMembersRouter } from './routes/team_members.js';
 import { rfisRouter } from './routes/rfis.js';
 import { pool, initDatabase } from './config/database.js';
 
@@ -125,6 +126,7 @@ app.use('/api/defects', defectsRouter);
 app.use('/api/permits', permitsRouter);
 app.use('/api/timesheets', timesheetsRouter);
 app.use('/api/daily-reports', dailyReportsRouter);
+app.use('/api/team-members', teamMembersRouter);
 app.use('/api/rfis', rfisRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
