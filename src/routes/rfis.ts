@@ -5,6 +5,7 @@ import { query, pool } from '../config/database.js';
 import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
+import { linkRecord } from '../utils/links.js';
 
 const router = Router();
 
@@ -20,6 +21,7 @@ const rfiSchema = z.object({
   dueDate: z.string().max(20).optional(),
   attachmentUrls: z.string().optional(),
   answeredById: z.string().uuid().optional(),
+  linkedDrawingId: z.string().uuid().optional(),
   respondedAt: z.string().datetime().optional(),
   approvedById: z.string().uuid().optional(),
   approvedAt: z.string().datetime().optional(),
@@ -78,7 +80,7 @@ router.post('/', authenticateToken, validate(rfiSchema), async (req, res) => {
     await client.query('BEGIN');
     const {
       projectId, raisedById, number, subject, question, response, status,
-      priority, dueDate, attachmentUrls, answeredById, respondedAt,
+      priority, dueDate, attachmentUrls, linkedDrawingId, answeredById, respondedAt,
       approvedById, approvedAt, rejectedById, rejectedAt, rejectedReason,
     } = req.body;
     const userId = req.user!.id;
@@ -111,6 +113,12 @@ router.post('/', authenticateToken, validate(rfiSchema), async (req, res) => {
     );
 
     await client.query('COMMIT');
+
+    // Auto-create link to related drawing
+    if (linkedDrawingId) {
+      await linkRecord('rfi', id, 'drawing', linkedDrawingId, 'linked_drawing', userId);
+    }
+
     successResponse(res, result.rows[0], 201);
   } catch (err) {
     await client.query('ROLLBACK');

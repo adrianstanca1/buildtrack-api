@@ -36,6 +36,7 @@ import { invoicesRouter } from './routes/invoices.js';
 import { submittalsRouter } from './routes/submittals.js';
 import { riskDashboardRouter } from './routes/risk_dashboard.js';
 import { projectTimelineRouter } from './routes/project_timeline.js';
+import { linksRouter } from './routes/links.js';
 import { guestsRouter } from './routes/guests.js';
 import { pool, initDatabase } from './config/database.js';
 
@@ -139,6 +140,7 @@ app.use('/api/invoices', invoicesRouter);
 app.use('/api/submittals', submittalsRouter);
 app.use('/api/risk-dashboard', riskDashboardRouter);
 app.use('/api/projects/:projectId/timeline', projectTimelineRouter);
+app.use('/api/links', linksRouter);
 app.use('/api/guests', guestsRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────

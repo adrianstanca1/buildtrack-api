@@ -5,6 +5,7 @@ import { query, pool } from '../config/database.js';
 import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
+import { linkRecord } from '../utils/links.js';
 
 const router = Router();
 
@@ -20,6 +21,8 @@ const defectSchema = z.object({
   reportedBy: z.string().min(1),
   dueDate: z.string().datetime().optional(),
   photoUrls: z.string().optional(),
+  linkedDrawingId: z.string().uuid().optional(),
+  linkedRfiId: z.string().uuid().optional(),
 });
 
 const defectIdSchema = z.object({ id: z.string().uuid() });
@@ -72,7 +75,7 @@ router.post('/', authenticateToken, validate(defectSchema), async (req, res) => 
     await client.query('BEGIN');
     const {
       projectId, title, description, location, trade, priority, status,
-      assignedTo, reportedBy, dueDate, photoUrls,
+      assignedTo, reportedBy, dueDate, photoUrls, linkedDrawingId, linkedRfiId,
     } = req.body;
     const userId = req.user!.id;
 
@@ -95,6 +98,15 @@ router.post('/', authenticateToken, validate(defectSchema), async (req, res) => 
     );
 
     await client.query('COMMIT');
+
+    // Auto-create links to related records
+    if (linkedDrawingId) {
+      await linkRecord('defect', id, 'drawing', linkedDrawingId, 'linked_drawing', userId);
+    }
+    if (linkedRfiId) {
+      await linkRecord('defect', id, 'rfi', linkedRfiId, 'linked_rfi', userId);
+    }
+
     successResponse(res, result.rows[0], 201);
   } catch (err) {
     await client.query('ROLLBACK');

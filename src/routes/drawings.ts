@@ -5,6 +5,7 @@ import { query, pool } from '../config/database.js';
 import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
+import { linkRecord } from '../utils/links.js';
 
 const router = Router();
 
@@ -15,6 +16,8 @@ const drawingSchema = z.object({
   fileUrl: z.string().url(),
   version: z.string().max(20).optional(),
   status: z.enum(['active', 'superseded', 'archived']).optional(),
+  linkedRfiId: z.string().uuid().optional(),
+  linkedSubmittalId: z.string().uuid().optional(),
 });
 
 const drawingIdSchema = z.object({ id: z.string().uuid() });
@@ -63,7 +66,7 @@ router.post('/', authenticateToken, validate(drawingSchema), async (req, res) =>
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { projectId, title, description, fileUrl, version, status } = req.body;
+    const { projectId, title, description, fileUrl, version, status, linkedRfiId, linkedSubmittalId } = req.body;
     const userId = req.user!.id;
 
     const projectCheck = await client.query(
@@ -83,6 +86,15 @@ router.post('/', authenticateToken, validate(drawingSchema), async (req, res) =>
     );
 
     await client.query('COMMIT');
+
+    // Auto-create links to related records
+    if (linkedRfiId) {
+      await linkRecord('drawing', id, 'rfi', linkedRfiId, 'linked_rfi', userId);
+    }
+    if (linkedSubmittalId) {
+      await linkRecord('drawing', id, 'submittal', linkedSubmittalId, 'linked_submittal', userId);
+    }
+
     successResponse(res, result.rows[0], 201);
   } catch (err) {
     await client.query('ROLLBACK');

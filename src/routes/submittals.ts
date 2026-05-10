@@ -6,6 +6,7 @@ import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
 import { auditLog } from '../utils/audit.js';
+import { linkRecord } from '../utils/links.js';
 
 const router = Router();
 
@@ -22,6 +23,7 @@ const submittalSchema = z.object({
   responsibleCompany: z.string().max(255).optional(),
   dueDate: z.string().max(20).optional(),
   linkedDrawingId: z.string().uuid().optional(),
+  linkedRfiId: z.string().uuid().optional(),
   linkedSpecDoc: z.string().optional(),
   attachmentUrls: z.string().optional(),
 });
@@ -76,7 +78,7 @@ router.post('/', authenticateToken, validate(submittalSchema), async (req, res) 
     await client.query('BEGIN');
     const {
       projectId, submittalNumber, title, description, specSection, type, status,
-      ballInCourt, reviewerId, responsibleCompany, dueDate, linkedDrawingId, linkedSpecDoc, attachmentUrls,
+      ballInCourt, reviewerId, responsibleCompany, dueDate, linkedDrawingId, linkedRfiId, linkedSpecDoc, attachmentUrls,
     } = req.body;
     const userId = req.user!.id;
 
@@ -104,13 +106,21 @@ router.post('/', authenticateToken, validate(submittalSchema), async (req, res) 
       ]
     );
 
+    // Auto-create links to related records
+    if (linkedDrawingId) {
+      await linkRecord('submittal', id, 'drawing', linkedDrawingId, 'linked_drawing', userId);
+    }
+    if (linkedRfiId) {
+      await linkRecord('submittal', id, 'rfi', linkedRfiId, 'linked_rfi', userId);
+    }
+
     await auditLog({
       userId,
       eventType: 'submittal_created',
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
       success: true,
-      details: { submittalId: id, projectId },
+      details: { submittalId: id, projectId, linkedDrawingId, linkedRfiId },
     });
     await client.query('COMMIT');
     successResponse(res, result.rows[0], 201);
