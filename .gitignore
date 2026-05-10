@@ -1,26 +1,22 @@
-# Dependencies
-node_modules
 
 # Build output
-dist/
-
-# Logs
-logs
-*.log
-npm-debug.log*
-
+# Dependencies
 # Environment
+# IDE
+# Logs
+# OS
+# Uploads
+*.log
+*.swp
+.DS_Store
 .env
 .env.local
-
-# Uploads
-uploads/
-
-# IDE
-.vscode/
 .idea/
-*.swp
-
-# OS
-.DS_Store
+.vscode/
 Thumbs.db
+dist/
+logs
+node_modules
+npm-debug.log*
+package-lock.json
+uploads/
