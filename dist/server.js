@@ -153,4 +153,8 @@ process.on('SIGTERM', async () => {
         process.exit(0);
     });
 });
+// Health check at /api/health too (for nginx proxy consistency)
+app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', service: 'buildtrack-api', timestamp: new Date().toISOString() });
+});
 //# sourceMappingURL=server.js.map

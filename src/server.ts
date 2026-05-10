@@ -170,3 +170,8 @@ process.on('SIGTERM', async () => {
 });
 
 export { io };
+
+// Health check at /api/health too (for nginx proxy consistency)
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', service: 'buildtrack-api', timestamp: new Date().toISOString() });
+});
