@@ -12,6 +12,8 @@ interface CreateNotificationParams {
   projectId?: string;
 }
 
+export type { CreateNotificationParams };
+
 /**
  * Create a notification for a user.
  */
@@ -30,7 +32,7 @@ export async function createNotification(params: CreateNotificationParams) {
 /**
  * Notify multiple users about an event (e.g. team members, guests).
  */
-export async function notifyUsers(params: CreateNotificationParams & { userIds: string[] }) {
+export async function notifyUsers(params: Omit<CreateNotificationParams, 'userId'> & { userIds: string[] }) {
   for (const uid of params.userIds) {
     await createNotification({ ...params, userId: uid });
   }

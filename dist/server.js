@@ -43,6 +43,10 @@ const risk_dashboard_js_1 = require("./routes/risk_dashboard.js");
 const project_timeline_js_1 = require("./routes/project_timeline.js");
 const links_js_1 = require("./routes/links.js");
 const guests_js_1 = require("./routes/guests.js");
+const exports_js_1 = require("./routes/exports.js");
+const punch_items_js_1 = require("./routes/punch_items.js");
+const site_photos_js_1 = require("./routes/site_photos.js");
+const delay_notes_js_1 = require("./routes/delay_notes.js");
 const database_js_1 = require("./config/database.js");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -137,6 +141,10 @@ app.use('/api/risk-dashboard', risk_dashboard_js_1.riskDashboardRouter);
 app.use('/api/projects/:projectId/timeline', project_timeline_js_1.projectTimelineRouter);
 app.use('/api/links', links_js_1.linksRouter);
 app.use('/api/guests', guests_js_1.guestsRouter);
+app.use('/api/exports', exports_js_1.exportsRouter);
+app.use('/api/punch-items', punch_items_js_1.punchItemsRouter);
+app.use('/api/site-photos', site_photos_js_1.sitePhotosRouter);
+app.use('/api/delay-notes', delay_notes_js_1.delayNotesRouter);
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
 // ─── 404 Handler ──────────────────────────────────────────────────────

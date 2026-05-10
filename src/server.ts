@@ -39,6 +39,9 @@ import { projectTimelineRouter } from './routes/project_timeline.js';
 import { linksRouter } from './routes/links.js';
 import { guestsRouter } from './routes/guests.js';
 import { exportsRouter } from './routes/exports.js';
+import { punchItemsRouter } from './routes/punch_items.js';
+import { sitePhotosRouter } from './routes/site_photos.js';
+import { delayNotesRouter } from './routes/delay_notes.js';
 import { pool, initDatabase } from './config/database.js';
 
 dotenv.config();
@@ -144,6 +147,9 @@ app.use('/api/projects/:projectId/timeline', projectTimelineRouter);
 app.use('/api/links', linksRouter);
 app.use('/api/guests', guestsRouter);
 app.use('/api/exports', exportsRouter);
+app.use('/api/punch-items', punchItemsRouter);
+app.use('/api/site-photos', sitePhotosRouter);
+app.use('/api/delay-notes', delayNotesRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
