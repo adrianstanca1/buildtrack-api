@@ -272,6 +272,23 @@ export async function initDatabase() {
       signature_url TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
+    `CREATE TABLE IF NOT EXISTS timesheet_entries (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+      worker_id UUID REFERENCES workers(id) ON DELETE SET NULL,
+      entry_date DATE NOT NULL,
+      hours_worked DECIMAL(5,2) NOT NULL CHECK (hours_worked >= 0),
+      overtime_hours DECIMAL(5,2) DEFAULT 0 CHECK (overtime_hours >= 0),
+      hourly_rate DECIMAL(10,2),
+      overtime_rate DECIMAL(10,2),
+      work_description TEXT,
+      category VARCHAR(20) DEFAULT 'regular' CHECK (category IN ('regular', 'overtime', 'weekend', 'holiday', 'sick', 'leave')),
+      status VARCHAR(20) DEFAULT 'submitted' CHECK (status IN ('submitted', 'approved', 'rejected', 'paid')),
+      approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
   ];
 
   for (const sql of tables) {
@@ -302,6 +319,10 @@ export async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_equipment_type ON equipment(type)',
     'CREATE INDEX IF NOT EXISTS idx_equipment_status ON equipment(status)',
     'CREATE INDEX IF NOT EXISTS idx_equipment_maintenance_equipment ON equipment_maintenance(equipment_id)',
+    'CREATE INDEX IF NOT EXISTS idx_timesheet_project ON timesheet_entries(project_id)',
+    'CREATE INDEX IF NOT EXISTS idx_timesheet_worker ON timesheet_entries(worker_id)',
+    'CREATE INDEX IF NOT EXISTS idx_timesheet_status ON timesheet_entries(status)',
+    'CREATE INDEX IF NOT EXISTS idx_timesheet_date ON timesheet_entries(entry_date)',
     'CREATE INDEX IF NOT EXISTS idx_po_project ON purchase_orders(project_id)',
     'CREATE INDEX IF NOT EXISTS idx_po_status ON purchase_orders(status)',
     'CREATE INDEX IF NOT EXISTS idx_po_vendor ON purchase_orders(vendor_name)',

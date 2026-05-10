@@ -1,35 +1,32 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { query, pool } from '../config/database.js';
+import { query, transaction } from '../config/database.js';
 import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
+import { auditLog } from '../utils/audit.js';
 
 const router = Router();
 
-const timesheetSchema = z.object({
-  projectId: z.string().uuid().optional(),
-  projectName: z.string().min(1).max(255),
-  workerId: z.string().optional(),
-  workerName: z.string().min(1).max(255),
-  weekStarting: z.string().min(1).max(20),
-  mondayHours: z.number().min(0).optional(),
-  tuesdayHours: z.number().min(0).optional(),
-  wednesdayHours: z.number().min(0).optional(),
-  thursdayHours: z.number().min(0).optional(),
-  fridayHours: z.number().min(0).optional(),
-  saturdayHours: z.number().min(0).optional(),
-  sundayHours: z.number().min(0).optional(),
-  totalHours: z.number().min(0).optional(),
-  overtimeHours: z.number().min(0).optional(),
-  status: z.enum(['draft', 'submitted', 'approved', 'rejected']).optional(),
+const timesheetEntrySchema = z.object({
+  projectId: z.string().uuid().min(1),
+  workerId: z.string().uuid().min(1),
+  entryDate: z.string().max(20),
+  hoursWorked: z.number().min(0).max(24),
+  overtimeHours: z.number().min(0).max(24).optional(),
+  hourlyRate: z.number().min(0).optional(),
+  overtimeRate: z.number().min(0).optional(),
+  workDescription: z.string().max(500).optional(),
+  category: z.enum(['regular', 'overtime', 'weekend', 'holiday', 'sick', 'leave']).optional(),
+  status: z.enum(['submitted', 'approved', 'rejected', 'paid']).optional(),
+  approvedBy: z.string().uuid().optional(),
   notes: z.string().optional(),
 });
 
-const timesheetIdSchema = z.object({ id: z.string().uuid() });
+const entryIdSchema = z.object({ id: z.string().uuid() });
 
-// ─── List Timesheets ────────────────────────────────────────────────────
+// ─── List Timesheet Entries ───────────────────────────────────────────────
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;
@@ -37,177 +34,236 @@ router.get('/', authenticateToken, async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const offset = (page - 1) * limit;
     const projectId = req.query.projectId as string;
-    const status = req.query.status as string;
     const workerId = req.query.workerId as string;
+    const status = req.query.status as string;
+    const entryDate = req.query.entryDate as string;
 
     let baseWhere = 'p.user_id = $1';
     const baseParams: any[] = [userId];
     let idx = 2;
 
     if (projectId) { baseWhere += ` AND t.project_id = $${idx++}`; baseParams.push(projectId); }
-    if (status)     { baseWhere += ` AND t.status = $${idx++}`;     baseParams.push(status); }
-    if (workerId)   { baseWhere += ` AND t.worker_id = $${idx++}`;  baseParams.push(workerId); }
+    if (workerId)  { baseWhere += ` AND t.worker_id = $${idx++}`; baseParams.push(workerId); }
+    if (status)      { baseWhere += ` AND t.status = $${idx++}`;    baseParams.push(status); }
+    if (entryDate)   { baseWhere += ` AND t.entry_date = $${idx++}`; baseParams.push(entryDate); }
 
     const countResult = await query(
-      `SELECT COUNT(*) FROM timesheets t JOIN projects p ON t.project_id = p.id WHERE ${baseWhere}`,
+      `SELECT COUNT(*) FROM timesheet_entries t
+       JOIN projects p ON t.project_id = p.id WHERE ${baseWhere}`,
       baseParams
     );
+    const total = parseInt(countResult.rows[0].count);
 
-    const dataParams = [...baseParams, limit, offset];
-    const dataResult = await query(
-      `SELECT t.*, p.name as project_name FROM timesheets t
+    const result = await query(
+      `SELECT t.*,
+        p.name as project_name,
+        w.name as worker_name,
+        w.role as worker_role,
+        (t.hours_worked * COALESCE(t.hourly_rate, w.hourly_rate, 0) +
+         t.overtime_hours * COALESCE(t.overtime_rate, w.hourly_rate * 1.5, 0)) as total_pay
+       FROM timesheet_entries t
        JOIN projects p ON t.project_id = p.id
+       LEFT JOIN workers w ON t.worker_id = w.id
        WHERE ${baseWhere}
-       ORDER BY t.created_at DESC LIMIT $${idx++} OFFSET $${idx++}`,
-      dataParams
+       ORDER BY t.entry_date DESC, t.created_at DESC
+       LIMIT $${idx++} OFFSET $${idx++}`,
+      [...baseParams, limit, offset]
     );
 
-    const total = parseInt(countResult.rows[0].count);
-    paginatedResponse(res, dataResult.rows, total, page, limit);
-  } catch (err) {
+    paginatedResponse(res, result.rows, total, page, limit);
+  } catch (err: any) {
     console.error('[Timesheets] List error:', err);
-    errorResponse(res, 'Failed to fetch timesheets', 'INTERNAL_ERROR', 500);
+    errorResponse(res, 'Failed to list timesheet entries', 'INTERNAL_ERROR', 500);
   }
 });
 
-// ─── Create Timesheet ───────────────────────────────────────────────────
-router.post('/', authenticateToken, validate(timesheetSchema), async (req, res) => {
-  const client = await pool.connect();
+// ─── Get Entry by ID ────────────────────────────────────────────────────
+router.get('/:id', authenticateToken, validateParams(entryIdSchema), async (req, res) => {
   try {
-    await client.query('BEGIN');
-    const {
-      projectId, projectName, workerId, workerName, weekStarting,
-      mondayHours, tuesdayHours, wednesdayHours, thursdayHours, fridayHours,
-      saturdayHours, sundayHours, totalHours, overtimeHours, status, notes,
-    } = req.body;
     const userId = req.user!.id;
+    const { id } = req.params;
 
-    if (projectId) {
-      const projectCheck = await client.query(
-        'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
-        [projectId, userId]
-      );
-      if (projectCheck.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return errorResponse(res, 'Project not found', 'NOT_FOUND', 404);
-      }
+    const result = await query(
+      `SELECT t.*,
+        p.name as project_name,
+        w.name as worker_name,
+        w.role as worker_role,
+        (t.hours_worked * COALESCE(t.hourly_rate, w.hourly_rate, 0) +
+         t.overtime_hours * COALESCE(t.overtime_rate, w.hourly_rate * 1.5, 0)) as total_pay
+       FROM timesheet_entries t
+       JOIN projects p ON t.project_id = p.id
+       LEFT JOIN workers w ON t.worker_id = w.id
+       WHERE t.id = $1 AND p.user_id = $2`,
+      [id, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return errorResponse(res, 'Timesheet entry not found', 'NOT_FOUND', 404);
     }
 
-    const id = uuidv4();
-    const result = await client.query(
-      `INSERT INTO timesheets (id, project_id, project_name, worker_id, worker_name, week_starting,
-       monday_hours, tuesday_hours, wednesday_hours, thursday_hours, friday_hours,
-       saturday_hours, sunday_hours, total_hours, overtime_hours, status, notes, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW()) RETURNING *`,
-      [id, projectId || null, projectName, workerId || null, workerName, weekStarting,
-       mondayHours || 0, tuesdayHours || 0, wednesdayHours || 0, thursdayHours || 0, fridayHours || 0,
-       saturdayHours || 0, sundayHours || 0, totalHours || 0, overtimeHours || 0, status || 'draft', notes || null]
-    );
-
-    await client.query('COMMIT');
-    successResponse(res, result.rows[0], 201);
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('[Timesheets] Create error:', err);
-    errorResponse(res, 'Failed to create timesheet', 'INTERNAL_ERROR', 500);
-  } finally {
-    client.release();
+    successResponse(res, result.rows[0]);
+  } catch (err: any) {
+    console.error('[Timesheets] Get error:', err);
+    errorResponse(res, 'Failed to get timesheet entry', 'INTERNAL_ERROR', 500);
   }
 });
 
-// ─── Get Timesheet ───────────────────────────────────────────────────────
-router.get('/:id', authenticateToken, validateParams(timesheetIdSchema), async (req, res) => {
+// ─── Create Entry ───────────────────────────────────────────────────────
+router.post('/', authenticateToken, validate(timesheetEntrySchema), async (req, res) => {
   try {
-    const result = await query(
-      `SELECT t.*, p.name as project_name FROM timesheets t
+    const userId = req.user!.id;
+    const {
+      projectId, workerId, entryDate, hoursWorked, overtimeHours,
+      hourlyRate, overtimeRate, workDescription, category, status, notes,
+    } = req.body;
+
+    const projectCheck = await query(
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      [projectId, userId]
+    );
+    if (projectCheck.rows.length === 0) {
+      return errorResponse(res, 'Project not found', 'NOT_FOUND', 404);
+    }
+
+    const entryId = uuidv4();
+
+    await query(
+      `INSERT INTO timesheet_entries
+       (id, project_id, worker_id, entry_date, hours_worked, overtime_hours,
+        hourly_rate, overtime_rate, work_description, category, status,
+        notes, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW(),NOW())`,
+      [entryId, projectId, workerId, entryDate, hoursWorked, overtimeHours || 0,
+       hourlyRate || null, overtimeRate || null, workDescription || null,
+       category || 'regular', status || 'submitted', notes || null]
+    );
+
+    await auditLog({
+      eventType: 'timesheet_created',
+      userId,
+      success: true,
+      details: { entityId: entryId, projectId, workerId, hoursWorked },
+    });
+
+    successResponse(res, { id: entryId, message: 'Timesheet entry created' }, 201);
+  } catch (err: any) {
+    console.error('[Timesheets] Create error:', err);
+    errorResponse(res, 'Failed to create timesheet entry', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// ─── Update Entry ───────────────────────────────────────────────────────
+router.put('/:id', authenticateToken, validateParams(entryIdSchema), validate(timesheetEntrySchema), async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const {
+      hoursWorked, overtimeHours, hourlyRate, overtimeRate,
+      workDescription, category, status, approvedBy, notes,
+    } = req.body;
+
+    const accessCheck = await query(
+      `SELECT t.id FROM timesheet_entries t
        JOIN projects p ON t.project_id = p.id
        WHERE t.id = $1 AND p.user_id = $2`,
-      [req.params.id, req.user!.id]
+      [id, userId]
     );
-    if (result.rows.length === 0) {
-      return errorResponse(res, 'Timesheet not found', 'NOT_FOUND', 404);
+    if (accessCheck.rows.length === 0) {
+      return errorResponse(res, 'Timesheet entry not found', 'NOT_FOUND', 404);
     }
-    successResponse(res, result.rows[0]);
-  } catch (err) {
-    console.error('[Timesheets] Get error:', err);
-    errorResponse(res, 'Failed to fetch timesheet', 'INTERNAL_ERROR', 500);
-  }
-});
 
-// ─── Update Timesheet ──────────────────────────────────────────────────
-router.put('/:id', authenticateToken, validateParams(timesheetIdSchema), validate(timesheetSchema.partial()), async (req, res) => {
-  try {
-    const timesheetId = req.params.id;
-    const userId = req.user!.id;
-
-    const check = await query(
-      `SELECT t.id FROM timesheets t JOIN projects p ON t.project_id = p.id WHERE t.id = $1 AND p.user_id = $2`,
-      [timesheetId, userId]
+    await query(
+      `UPDATE timesheet_entries SET
+        hours_worked = COALESCE($1, hours_worked),
+        overtime_hours = COALESCE($2, overtime_hours),
+        hourly_rate = COALESCE($3, hourly_rate),
+        overtime_rate = COALESCE($4, overtime_rate),
+        work_description = COALESCE($5, work_description),
+        category = COALESCE($6, category),
+        status = COALESCE($7, status),
+        approved_by = COALESCE($8, approved_by),
+        notes = COALESCE($9, notes),
+        updated_at = NOW()
+       WHERE id = $10`,
+      [hoursWorked, overtimeHours, hourlyRate, overtimeRate,
+       workDescription, category, status, approvedBy, notes, id]
     );
-    if (check.rows.length === 0) {
-      return errorResponse(res, 'Timesheet not found', 'NOT_FOUND', 404);
-    }
 
-    const updates: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
+    await auditLog({
+      eventType: 'timesheet_updated',
+      userId,
+      success: true,
+      details: { entityId: id, status },
+    });
 
-    const mappings: Record<string, string> = {
-      projectId: 'project_id',
-      projectName: 'project_name',
-      workerId: 'worker_id',
-      workerName: 'worker_name',
-      weekStarting: 'week_starting',
-      mondayHours: 'monday_hours',
-      tuesdayHours: 'tuesday_hours',
-      wednesdayHours: 'wednesday_hours',
-      thursdayHours: 'thursday_hours',
-      fridayHours: 'friday_hours',
-      saturdayHours: 'saturday_hours',
-      sundayHours: 'sunday_hours',
-      totalHours: 'total_hours',
-      overtimeHours: 'overtime_hours',
-      status: 'status',
-      notes: 'notes',
-    };
-
-    for (const [bodyKey, dbKey] of Object.entries(mappings)) {
-      if (req.body[bodyKey] !== undefined) {
-        updates.push(`${dbKey} = $${idx++}`);
-        values.push(req.body[bodyKey]);
-      }
-    }
-
-    if (updates.length === 0) {
-      return errorResponse(res, 'No fields to update', 'VALIDATION_ERROR', 400);
-    }
-
-    values.push(timesheetId);
-    const sql = `UPDATE timesheets SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`;
-    const result = await query(sql, values);
-    successResponse(res, result.rows[0]);
-  } catch (err) {
+    successResponse(res, { id, message: 'Timesheet entry updated' });
+  } catch (err: any) {
     console.error('[Timesheets] Update error:', err);
-    errorResponse(res, 'Failed to update timesheet', 'INTERNAL_ERROR', 500);
+    errorResponse(res, 'Failed to update timesheet entry', 'INTERNAL_ERROR', 500);
   }
 });
 
-// ─── Delete Timesheet ──────────────────────────────────────────────────
-router.delete('/:id', authenticateToken, validateParams(timesheetIdSchema), async (req, res) => {
+// ─── Delete Entry ───────────────────────────────────────────────────────
+router.delete('/:id', authenticateToken, validateParams(entryIdSchema), async (req, res) => {
   try {
-    const check = await query(
-      `SELECT t.id FROM timesheets t JOIN projects p ON t.project_id = p.id WHERE t.id = $1 AND p.user_id = $2`,
-      [req.params.id, req.user!.id]
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    const accessCheck = await query(
+      `SELECT t.id FROM timesheet_entries t
+       JOIN projects p ON t.project_id = p.id
+       WHERE t.id = $1 AND p.user_id = $2`,
+      [id, userId]
     );
-    if (check.rows.length === 0) {
-      return errorResponse(res, 'Timesheet not found', 'NOT_FOUND', 404);
+    if (accessCheck.rows.length === 0) {
+      return errorResponse(res, 'Timesheet entry not found', 'NOT_FOUND', 404);
     }
 
-    await query('DELETE FROM timesheets WHERE id = $1', [req.params.id]);
-    successResponse(res, { message: 'Timesheet deleted' });
-  } catch (err) {
+    await query('DELETE FROM timesheet_entries WHERE id = $1', [id]);
+
+    await auditLog({
+      eventType: 'timesheet_deleted',
+      userId,
+      success: true,
+      details: { entityId: id },
+    });
+
+    successResponse(res, { message: 'Timesheet entry deleted' });
+  } catch (err: any) {
     console.error('[Timesheets] Delete error:', err);
-    errorResponse(res, 'Failed to delete timesheet', 'INTERNAL_ERROR', 500);
+    errorResponse(res, 'Failed to delete timesheet entry', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// ─── Batch Approve ──────────────────────────────────────────────────────
+router.post('/batch-approve', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const { entryIds } = req.body;
+
+    if (!Array.isArray(entryIds) || entryIds.length === 0) {
+      return errorResponse(res, 'entryIds array required', 'VALIDATION_ERROR', 400);
+    }
+
+    const placeholders = entryIds.map((_: any, i: number) => `$${i + 3}`).join(',');
+    await query(
+      `UPDATE timesheet_entries t SET status = 'approved', approved_by = $1, updated_at = NOW()
+       FROM projects p
+       WHERE t.project_id = p.id AND p.user_id = $2 AND t.id IN (${placeholders})`,
+      [userId, userId, ...entryIds]
+    );
+
+    await auditLog({
+      eventType: 'timesheet_batch_approved',
+      userId,
+      success: true,
+      details: { count: entryIds.length, entryIds },
+    });
+
+    successResponse(res, { message: `${entryIds.length} entries approved` });
+  } catch (err: any) {
+    console.error('[Timesheets] Batch approve error:', err);
+    errorResponse(res, 'Failed to approve entries', 'INTERNAL_ERROR', 500);
   }
 });
 
