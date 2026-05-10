@@ -45,6 +45,7 @@ import { delayNotesRouter } from './routes/delay_notes.js';
 import { meetingsRouter } from './routes/meetings.js';
 import { purchaseOrdersRouter } from './routes/purchase_orders.js';
 import { equipmentRouter } from './routes/equipment.js';
+import { materialsRouter } from './routes/materials.js';
 import { pool, initDatabase } from './config/database.js';
 
 dotenv.config();
@@ -156,6 +157,7 @@ app.use('/api/delay-notes', delayNotesRouter);
 app.use('/api/meetings', meetingsRouter);
 app.use('/api/purchase-orders', purchaseOrdersRouter);
 app.use('/api/equipment', equipmentRouter);
+app.use('/api/materials', materialsRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

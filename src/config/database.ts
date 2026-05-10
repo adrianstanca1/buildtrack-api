@@ -289,6 +289,44 @@ export async function initDatabase() {
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )`,
+    `CREATE TABLE IF NOT EXISTS materials (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+      name VARCHAR(255) NOT NULL,
+      category VARCHAR(20) DEFAULT 'other' CHECK (category IN ('concrete', 'steel', 'timber', 'brick', 'block', 'insulation', 'roofing', 'electrical', 'plumbing', 'paint', 'hardware', 'aggregate', 'other')),
+      unit VARCHAR(50) NOT NULL,
+      unit_cost DECIMAL(10,2) DEFAULT 0,
+      quantity_on_hand DECIMAL(12,3) DEFAULT 0,
+      quantity_ordered DECIMAL(12,3) DEFAULT 0,
+      reorder_level DECIMAL(12,3) DEFAULT 0,
+      reorder_quantity DECIMAL(12,3) DEFAULT 0,
+      supplier_name VARCHAR(255),
+      location VARCHAR(255),
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS material_deliveries (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      material_id UUID REFERENCES materials(id) ON DELETE CASCADE,
+      po_id UUID REFERENCES purchase_orders(id) ON DELETE SET NULL,
+      quantity DECIMAL(12,3) NOT NULL CHECK (quantity > 0),
+      unit_cost DECIMAL(10,2),
+      delivery_date DATE,
+      delivered_by VARCHAR(255),
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS material_usage (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      material_id UUID REFERENCES materials(id) ON DELETE CASCADE,
+      quantity DECIMAL(12,3) NOT NULL CHECK (quantity > 0),
+      used_by UUID REFERENCES workers(id) ON DELETE SET NULL,
+      used_date DATE,
+      work_area VARCHAR(255),
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
   ];
 
   for (const sql of tables) {
@@ -326,6 +364,10 @@ export async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_po_project ON purchase_orders(project_id)',
     'CREATE INDEX IF NOT EXISTS idx_po_status ON purchase_orders(status)',
     'CREATE INDEX IF NOT EXISTS idx_po_vendor ON purchase_orders(vendor_name)',
+    'CREATE INDEX IF NOT EXISTS idx_materials_project ON materials(project_id)',
+    'CREATE INDEX IF NOT EXISTS idx_materials_category ON materials(category)',
+    'CREATE INDEX IF NOT EXISTS idx_materials_name ON materials(name)',
+    'CREATE INDEX IF NOT EXISTS idx_material_deliveries_material ON material_deliveries(material_id)',
   ];
 
   for (const sql of indexes) {
