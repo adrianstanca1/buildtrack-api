@@ -356,6 +356,32 @@ export async function initDatabase() {
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )`,
+    `CREATE TABLE IF NOT EXISTS schedules (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+      project_name VARCHAR(255),
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      start_date DATE NOT NULL,
+      end_date DATE,
+      duration_days INTEGER,
+      progress_percent DECIMAL(5,2) DEFAULT 0 CHECK (progress_percent BETWEEN 0 AND 100),
+      status VARCHAR(20) DEFAULT 'not_started' CHECK (status IN ('not_started', 'in_progress', 'on_hold', 'completed', 'cancelled')),
+      is_milestone BOOLEAN DEFAULT FALSE,
+      is_critical_path BOOLEAN DEFAULT FALSE,
+      wbs_code VARCHAR(50),
+      parent_task_id UUID REFERENCES schedules(id) ON DELETE CASCADE,
+      assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+      assigned_name VARCHAR(255),
+      predecessor_ids UUID[],
+      lag_days INTEGER DEFAULT 0,
+      float_days INTEGER,
+      resource_ids UUID[],
+      cost_estimate DECIMAL(12,2),
+      actual_cost DECIMAL(12,2),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
     `CREATE TABLE IF NOT EXISTS budget_categories (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
@@ -437,6 +463,10 @@ export async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_cost_entries_category ON cost_entries(budget_category_id)',
     'CREATE INDEX IF NOT EXISTS idx_cost_entries_type ON cost_entries(entry_type)',
     'CREATE INDEX IF NOT EXISTS idx_cost_entries_date ON cost_entries(date)',
+    'CREATE INDEX IF NOT EXISTS idx_schedules_project ON schedules(project_id)',
+    'CREATE INDEX IF NOT EXISTS idx_schedules_status ON schedules(status)',
+    'CREATE INDEX IF NOT EXISTS idx_schedules_start ON schedules(start_date)',
+    'CREATE INDEX IF NOT EXISTS idx_schedules_milestone ON schedules(is_milestone)',
   ];
 
   for (const sql of indexes) {

@@ -48,6 +48,7 @@ import { equipmentRouter } from './routes/equipment.js';
 import { materialsRouter } from './routes/materials.js';
 import { changeOrdersRouter } from './routes/change_orders.js';
 import { budgetRouter } from './routes/budget.js';
+import { schedulesRouter } from './routes/schedules.js';
 import { pool, initDatabase } from './config/database.js';
 
 dotenv.config();
@@ -162,6 +163,7 @@ app.use('/api/equipment', equipmentRouter);
 app.use('/api/materials', materialsRouter);
 app.use('/api/change-orders', changeOrdersRouter);
 app.use('/api/budget', budgetRouter);
+app.use('/api/schedules', schedulesRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
