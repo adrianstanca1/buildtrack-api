@@ -190,6 +190,29 @@ export async function initDatabase() {
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )`,
+    `CREATE TABLE IF NOT EXISTS purchase_orders (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+      po_number VARCHAR(100) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      vendor_name VARCHAR(255) NOT NULL,
+      vendor_email VARCHAR(255),
+      vendor_phone VARCHAR(50),
+      status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'acknowledged', 'partially_delivered', 'delivered', 'invoiced', 'paid', 'cancelled')),
+      items JSONB DEFAULT '[]',
+      subtotal DECIMAL(15,2) DEFAULT 0,
+      tax_rate DECIMAL(5,2) DEFAULT 0,
+      tax_amount DECIMAL(15,2) DEFAULT 0,
+      total DECIMAL(15,2) DEFAULT 0,
+      delivery_date DATE,
+      expected_delivery DATE,
+      delivery_address TEXT,
+      notes TEXT,
+      created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
     `CREATE TABLE IF NOT EXISTS meetings (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
@@ -242,6 +265,9 @@ export async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_meetings_status ON meetings(status)',
     'CREATE INDEX IF NOT EXISTS idx_meetings_scheduled ON meetings(scheduled_at)',
     'CREATE INDEX IF NOT EXISTS idx_meeting_attendees_meeting ON meeting_attendees(meeting_id)',
+    'CREATE INDEX IF NOT EXISTS idx_po_project ON purchase_orders(project_id)',
+    'CREATE INDEX IF NOT EXISTS idx_po_status ON purchase_orders(status)',
+    'CREATE INDEX IF NOT EXISTS idx_po_vendor ON purchase_orders(vendor_name)',
   ];
 
   for (const sql of indexes) {
