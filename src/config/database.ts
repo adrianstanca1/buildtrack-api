@@ -356,6 +356,37 @@ export async function initDatabase() {
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )`,
+    `CREATE TABLE IF NOT EXISTS budget_categories (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      code VARCHAR(50),
+      description TEXT,
+      budget_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+      contingency_percent DECIMAL(5,2) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS cost_entries (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+      budget_category_id UUID REFERENCES budget_categories(id) ON DELETE SET NULL,
+      entry_type VARCHAR(50) DEFAULT 'actual' CHECK (entry_type IN ('budget', 'actual', 'forecast', 'commitment', 'variance')),
+      description TEXT,
+      amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+      quantity DECIMAL(12,3) DEFAULT 1,
+      unit VARCHAR(50),
+      vendor VARCHAR(255),
+      cost_code VARCHAR(50),
+      date DATE,
+      linked_po_id UUID,
+      linked_co_id UUID,
+      linked_invoice_id UUID,
+      linked_timesheet_id UUID,
+      notes TEXT,
+      created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
   ];
 
   for (const sql of tables) {
@@ -401,6 +432,11 @@ export async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_change_orders_status ON change_orders(status)',
     'CREATE INDEX IF NOT EXISTS idx_change_orders_type ON change_orders(type)',
     'CREATE INDEX IF NOT EXISTS idx_change_orders_number ON change_orders(co_number)',
+    'CREATE INDEX IF NOT EXISTS idx_budget_categories_project ON budget_categories(project_id)',
+    'CREATE INDEX IF NOT EXISTS idx_cost_entries_project ON cost_entries(project_id)',
+    'CREATE INDEX IF NOT EXISTS idx_cost_entries_category ON cost_entries(budget_category_id)',
+    'CREATE INDEX IF NOT EXISTS idx_cost_entries_type ON cost_entries(entry_type)',
+    'CREATE INDEX IF NOT EXISTS idx_cost_entries_date ON cost_entries(date)',
   ];
 
   for (const sql of indexes) {
