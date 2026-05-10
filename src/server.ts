@@ -36,6 +36,7 @@ import { invoicesRouter } from './routes/invoices.js';
 import { submittalsRouter } from './routes/submittals.js';
 import { riskDashboardRouter } from './routes/risk_dashboard.js';
 import { projectTimelineRouter } from './routes/project_timeline.js';
+import { guestsRouter } from './routes/guests.js';
 import { pool, initDatabase } from './config/database.js';
 
 dotenv.config();
@@ -138,6 +139,7 @@ app.use('/api/invoices', invoicesRouter);
 app.use('/api/submittals', submittalsRouter);
 app.use('/api/risk-dashboard', riskDashboardRouter);
 app.use('/api/projects/:projectId/timeline', projectTimelineRouter);
+app.use('/api/guests', guestsRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

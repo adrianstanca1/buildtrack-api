@@ -101,7 +101,19 @@ router.post('/', authenticateToken, validate(dailyReportSchema), async (req, res
     );
 
     await client.query('COMMIT');
-    successResponse(res, result.rows[0], 201);
+
+    // Analyse for risk signals
+    const riskSignals = await import('../utils/risk_signals.js').then(m =>
+      m.analyseDailyReportForRisk(projectId, {
+        workCompleted: workCompleted || undefined,
+        issuesDelays: issuesDelays || undefined,
+        safetyObservations: safetyObservations || undefined,
+        workersOnSite: workersOnSite || undefined,
+        weather: weather || undefined,
+      })
+    );
+
+    successResponse(res, { ...result.rows[0], riskSignals }, 201);
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[DailyReports] Create error:', err);
