@@ -276,6 +276,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
 
 // ─── Refresh Token ──────────────────────────────────────────────────────
 router.post('/refresh', async (req, res) => {
+  const client = await pool.connect();
   try {
     const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
@@ -293,7 +294,7 @@ router.post('/refresh', async (req, res) => {
 
     // Check if refresh token exists in database (using hash)
     const tokenHash = hashRefreshToken(refreshToken);
-    const tokenResult = await query(
+    const tokenResult = await client.query(
       'SELECT * FROM refresh_tokens WHERE token_hash = $1 AND user_id = $2 AND expires_at > NOW()',
       [tokenHash, decoded.userId]
     );
@@ -302,19 +303,21 @@ router.post('/refresh', async (req, res) => {
       return errorResponse(res, 'Invalid or expired refresh token', 'UNAUTHORIZED', 401);
     }
 
-    // Generate new tokens
+    await client.query('BEGIN');
+
+    // Delete old token (using hash), insert new — atomic to prevent race
+    await client.query('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
     const payload = { userId: decoded.userId, email: decoded.email, role: decoded.role };
     const newAccessToken = generateAccessToken(payload);
     const newRefreshToken = generateRefreshToken(payload);
-
-    // Delete old token (using hash), insert new
-    await query('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
     const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const newTokenHash = hashRefreshToken(newRefreshToken);
-    await query(
+    await client.query(
       'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [uuidv4(), decoded.userId, newTokenHash, newExpiry]
     );
+
+    await client.query('COMMIT');
 
     res.cookie('accessToken', newAccessToken, {
       httpOnly: true,
@@ -487,6 +490,11 @@ router.post('/change-password', authenticateToken, validate(changePasswordSchema
     console.error('[Auth] Change password error:', err);
     errorResponse(res, 'Failed to change password', 'INTERNAL_ERROR', 500);
   }
+});
+
+// ─── Root route redirect ──────────────────────────────────────────────────
+router.get('/', (req, res) => {
+  res.redirect('/api/docs');
 });
 
 export { router as authRouter };

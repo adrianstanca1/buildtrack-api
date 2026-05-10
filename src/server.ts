@@ -129,6 +129,11 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'buildtrack-api', timestamp: new Date().toISOString() });
 });
 
+// ─── Root route redirect ──────────────────────────────────────────────────
+app.get('/', (_req, res) => {
+  res.redirect('/api/docs');
+});
+
 // ─── API Routes ─────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRouter);
 app.use('/api/projects', projectsRouter);
