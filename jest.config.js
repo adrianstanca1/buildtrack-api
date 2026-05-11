@@ -6,7 +6,6 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js'],
   setupFilesAfterEnv: ['<rootDir>/__tests__/utils/setup.ts'],
-  globalSetup: '<rootDir>/__tests__/utils/globalSetup.ts',
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageDirectory: 'coverage',
   extensionsToTreatAsEsm: ['.ts'],
