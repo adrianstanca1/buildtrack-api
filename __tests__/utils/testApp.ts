@@ -17,6 +17,10 @@ import { dashboardRouter } from '../../src/routes/dashboard.js';
 import { adminRouter } from '../../src/routes/admin.js';
 import { uploadsRouter } from '../../src/routes/uploads.js';
 
+export async function createApp() {
+  return createTestApp();
+}
+
 export function createTestApp() {
   const app = express();
 
