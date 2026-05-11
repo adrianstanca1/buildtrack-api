@@ -20,6 +20,6 @@
     "noImplicitReturns": false,
     "noFallthroughCasesInSwitch": false
   },
-  "include": ["src/**/*", "__tests__/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
