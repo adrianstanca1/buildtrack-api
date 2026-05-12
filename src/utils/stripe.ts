@@ -12,7 +12,8 @@ if (!stripeSecretKey) {
   console.warn('[Stripe] STRIPE_SECRET_KEY not set — payments disabled');
 }
 
-export const stripe = stripeSecretKey ? new Stripe(stripeSecretKey, { apiVersion: '2026-04-22.dahlia' }) : null;
+const stripeInstance = stripeSecretKey ? new Stripe(stripeSecretKey, { apiVersion: '2026-04-22.dahlia' }) : null;
+export const stripe: any = stripeInstance;
 
 export async function createPaymentIntent(
   amount: number,
