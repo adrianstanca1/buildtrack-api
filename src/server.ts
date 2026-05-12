@@ -170,6 +170,7 @@ app.use('/api/materials', materialsRouter);
 app.use('/api/change-orders', changeOrdersRouter);
 app.use('/api/budget', budgetRouter);
 app.use('/api/schedules', schedulesRouter);
+app.use('/api/analytics', analyticsRouter);
 app.use('/api/push', pushRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
