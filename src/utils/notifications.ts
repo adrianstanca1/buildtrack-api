@@ -1,5 +1,6 @@
 import { query } from '../config/database.js';
 import { v4 as uuidv4 } from 'uuid';
+import { sendPushToUser, sendPushToUsers } from './push.js';
 
 export type NotificationType = 'task' | 'project' | 'safety' | 'rfi' | 'submittal' | 'drawing' | 'daily_report' | 'punch' | 'team' | 'general';
 
@@ -24,6 +25,12 @@ export async function createNotification(params: CreateNotificationParams) {
        VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
       [uuidv4(), params.userId, params.title, params.body, params.type, params.relatedId || null]
     );
+    // Also send push notification
+    sendPushToUser(params.userId, params.title, params.body, {
+      type: params.type,
+      relatedId: params.relatedId,
+      projectId: params.projectId,
+    }).catch(() => { /* best effort */ });
   } catch (err) {
     console.error('[Notifications] Failed to create:', err);
   }
@@ -36,6 +43,13 @@ export async function notifyUsers(params: Omit<CreateNotificationParams, 'userId
   for (const uid of params.userIds) {
     await createNotification({ ...params, userId: uid });
   }
+  // Batch push to all users
+  sendPushToUsers(
+    params.userIds,
+    params.title,
+    params.body,
+    { type: params.type, relatedId: params.relatedId, projectId: params.projectId }
+  ).catch(() => { /* best effort */ });
 }
 
 /**

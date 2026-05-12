@@ -411,7 +411,7 @@ router.get('/me', authenticateToken, async (req, res) => {
 // ─── Update Profile ─────────────────────────────────────────────────────
 router.put('/me', authenticateToken, async (req, res) => {
   try {
-    const { firstName, lastName, companyName, phone } = req.body;
+    const { firstName, lastName, companyName, phone, pushToken, pushPlatform } = req.body;
     const userId = req.user!.id;
 
     const updates: string[] = [];
@@ -422,6 +422,8 @@ router.put('/me', authenticateToken, async (req, res) => {
     if (lastName !== undefined) { updates.push(`last_name = $${idx++}`); values.push(lastName); }
     if (companyName !== undefined) { updates.push(`company_name = $${idx++}`); values.push(companyName); }
     if (phone !== undefined) { updates.push(`phone = $${idx++}`); values.push(phone); }
+    if (pushToken !== undefined) { updates.push(`push_token = $${idx++}`); values.push(pushToken); }
+    if (pushPlatform !== undefined) { updates.push(`push_platform = $${idx++}`); values.push(pushPlatform); }
 
     if (updates.length === 0) {
       return errorResponse(res, 'No fields to update', 'VALIDATION_ERROR', 400);

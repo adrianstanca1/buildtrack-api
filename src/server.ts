@@ -48,7 +48,7 @@ import { equipmentRouter } from './routes/equipment.js';
 import { materialsRouter } from './routes/materials.js';
 import { changeOrdersRouter } from './routes/change_orders.js';
 import { budgetRouter } from './routes/budget.js';
-import { schedulesRouter } from './routes/schedules.js';
+import { pushRouter } from './routes/push.js';
 import { idempotencyMiddleware, initIdempotencyTable } from './middleware/idempotency.js';
 
 dotenv.config();
@@ -170,6 +170,7 @@ app.use('/api/materials', materialsRouter);
 app.use('/api/change-orders', changeOrdersRouter);
 app.use('/api/budget', budgetRouter);
 app.use('/api/schedules', schedulesRouter);
+app.use('/api/push', pushRouter);
 
 // ─── Static File Serving (uploads) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
