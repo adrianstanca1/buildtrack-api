@@ -12,7 +12,7 @@ if (!stripeSecretKey) {
   console.warn('[Stripe] STRIPE_SECRET_KEY not set — payments disabled');
 }
 
-export const stripe = stripeSecretKey ? new Stripe(stripeSecretKey, { apiVersion: '2025-03-31.basil' }) : null;
+export const stripe = stripeSecretKey ? new Stripe(stripeSecretKey, { apiVersion: '2026-04-22.dahlia' }) : null;
 
 export async function createPaymentIntent(
   amount: number,
@@ -23,7 +23,7 @@ export async function createPaymentIntent(
   if (!stripe) return null;
 
   try {
-    const params: Stripe.PaymentIntentCreateParams = {
+    const params: any = {
       amount: Math.round(amount * 100), // pence/cents
       currency: currency.toLowerCase(),
       metadata: { invoice_id: invoiceId },
@@ -68,7 +68,7 @@ export async function getOrCreateCustomer(userId: string, email: string, name?: 
   }
 }
 
-export async function retrievePaymentIntent(paymentIntentId: string): Promise<Stripe.PaymentIntent | null> {
+export async function retrievePaymentIntent(paymentIntentId: string): Promise<any | null> {
   if (!stripe) return null;
   try {
     return await stripe.paymentIntents.retrieve(paymentIntentId);
@@ -78,7 +78,7 @@ export async function retrievePaymentIntent(paymentIntentId: string): Promise<St
   }
 }
 
-export async function constructWebhookEvent(payload: string | Buffer, signature: string, secret: string): Promise<Stripe.Event | null> {
+export async function constructWebhookEvent(payload: string | Buffer, signature: string, secret: string): Promise<any | null> {
   if (!stripe) return null;
   try {
     return stripe.webhooks.constructEvent(payload, signature, secret);

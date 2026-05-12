@@ -48,8 +48,13 @@ import { equipmentRouter } from './routes/equipment.js';
 import { materialsRouter } from './routes/materials.js';
 import { changeOrdersRouter } from './routes/change_orders.js';
 import { budgetRouter } from './routes/budget.js';
+import { schedulesRouter } from './routes/schedules.js';
+import { analyticsRouter } from './routes/analytics.js';
 import { pushRouter } from './routes/push.js';
 import { paymentsRouter } from './routes/payments.js';
+
+import { pool } from './config/database.js';
+import { initDatabase } from './config/database.js';
 import { idempotencyMiddleware, initIdempotencyTable } from './middleware/idempotency.js';
 
 dotenv.config();

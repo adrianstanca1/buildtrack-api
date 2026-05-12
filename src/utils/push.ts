@@ -104,7 +104,7 @@ async function sendExpoPush(
         body: JSON.stringify(messages),
       });
 
-      const result = await response.json();
+      const result: any = await response.json();
       if (result.data) {
         for (const receipt of result.data) {
           if (receipt.status === 'ok') {
