@@ -49,7 +49,7 @@ import { materialsRouter } from './routes/materials.js';
 import { changeOrdersRouter } from './routes/change_orders.js';
 import { budgetRouter } from './routes/budget.js';
 import { schedulesRouter } from './routes/schedules.js';
-import { pool, initDatabase } from './config/database.js';
+import { idempotencyMiddleware, initIdempotencyTable } from './middleware/idempotency.js';
 
 dotenv.config();
 
@@ -93,6 +93,7 @@ const limiter = rateLimit({
   },
 });
 app.use('/api/', limiter);
+app.use(idempotencyMiddleware);
 
 // ─── Auth Rate Limiting (stricter) ──────────────────────────────────
 const authLimiter = rateLimit({
@@ -217,6 +218,7 @@ async function startServer() {
 
     // Initialize database tables
     await initDatabase();
+    await initIdempotencyTable();
     console.log('[DB] Tables initialized');
 
     httpServer.listen(PORT, () => {
