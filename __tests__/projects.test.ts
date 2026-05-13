@@ -179,7 +179,9 @@ describe('Projects Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.name).toBe('Updated Name');
-      expect(res.body.data.budget).toBe('999999');
+      // Postgres DECIMAL(15,2) stringifies with two decimal places.
+      // Compare numerically so the test doesn't depend on pg serialisation.
+      expect(parseFloat(res.body.data.budget)).toBe(999999);
       expect(res.body.data.progress).toBe(50);
     });
 

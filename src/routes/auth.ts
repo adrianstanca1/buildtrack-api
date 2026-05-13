@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { query, pool } from '../config/database.js';
+import crypto from 'crypto';
+import { query, pool, transaction } from '../config/database.js';
 import { validate } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { generateAccessToken, generateRefreshToken, hashRefreshToken } from '../utils/jwt.js';
@@ -30,6 +31,19 @@ const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
   newPassword: z.string().min(8, 'New password must be at least 8 characters'),
 });
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email address'),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+// Reset tokens expire 1 hour after issue. Adjust here only — don't
+// duplicate the constant in the validation/cleanup paths.
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 /**
  * @swagger
@@ -491,6 +505,163 @@ router.post('/change-password', authenticateToken, validate(changePasswordSchema
   } catch (err) {
     console.error('[Auth] Change password error:', err);
     errorResponse(res, 'Failed to change password', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// ─── Forgot Password ──────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Request a password reset email
+ *     description: |
+ *       Always returns 200 success regardless of whether the email is registered
+ *       (prevents account enumeration). If the email exists, a single-use reset
+ *       token is generated, hashed (SHA-256) and stored with a 1-hour TTL; the
+ *       raw token is sent to the user via email (currently logged for dev).
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email: { type: string, format: email }
+ *     responses:
+ *       200:
+ *         description: Reset link will be sent if the account exists
+ *       400:
+ *         description: Invalid email format
+ */
+router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res) => {
+  try {
+    const { email } = req.body;
+    const normalised = email.toLowerCase();
+
+    const userResult = await query('SELECT id FROM users WHERE email = $1', [normalised]);
+    if (userResult.rows.length > 0) {
+      const userId = userResult.rows[0].id;
+
+      // Generate raw token (delivered to user via email) + store its
+      // SHA-256 hash. Hashing means a DB compromise can't grant resets.
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+
+      await query(
+        'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+        [userId, tokenHash, expiresAt]
+      );
+
+      // TODO: wire to email provider (Brevo/SendGrid). For dev we log the URL.
+      const appUrl = process.env.APP_URL || 'https://buildtrack.cortexbuildpro.com';
+      const resetUrl = `${appUrl}/reset-password?token=${rawToken}`;
+      logger.info(`[Auth] Password reset for ${normalised} → ${resetUrl}`);
+
+      await auditLog({
+        userId,
+        eventType: 'PASSWORD_RESET_REQUESTED',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        success: true,
+      });
+    }
+
+    // Always 200 — same response shape for "user exists" and "user doesn't" —
+    // so callers can't enumerate accounts.
+    successResponse(res, {
+      message: 'If an account exists for that email, a reset link has been sent.',
+    });
+  } catch (err) {
+    console.error('[Auth] Forgot password error:', err);
+    errorResponse(res, 'Failed to process password reset', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// ─── Reset Password ──────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Complete password reset using a token from /forgot-password
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, password]
+ *             properties:
+ *               token: { type: string }
+ *               password: { type: string, minLength: 8 }
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *       400:
+ *         description: Invalid/expired/used token, or password fails strength check
+ */
+router.post('/reset-password', validate(resetPasswordSchema), async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    // Validate password strength BEFORE checking the token. We don't
+    // want to leak token validity by short-circuiting on weak passwords.
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.valid) {
+      return errorResponse(res, pwCheck.errors[0], 'VALIDATION_ERROR', 400, pwCheck.errors);
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const tokenResult = await query(
+      'SELECT id, user_id, expires_at, used_at FROM password_reset_tokens WHERE token_hash = $1',
+      [tokenHash]
+    );
+
+    if (tokenResult.rows.length === 0) {
+      return errorResponse(res, 'Invalid or expired token', 'VALIDATION_ERROR', 400);
+    }
+
+    const tokenRow = tokenResult.rows[0];
+    if (tokenRow.used_at) {
+      return errorResponse(res, 'Token already used', 'VALIDATION_ERROR', 400);
+    }
+    if (new Date(tokenRow.expires_at) < new Date()) {
+      return errorResponse(res, 'Token expired', 'VALIDATION_ERROR', 400);
+    }
+
+    const newHash = await hashPassword(password);
+
+    // Atomic: rotate password, burn the used token + any sibling pending
+    // tokens for the same user, revoke all refresh sessions.
+    await transaction(async (client) => {
+      await client.query(
+        'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+        [newHash, tokenRow.user_id]
+      );
+      await client.query(
+        'UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL',
+        [tokenRow.user_id]
+      );
+      await client.query('DELETE FROM refresh_tokens WHERE user_id = $1', [tokenRow.user_id]);
+    });
+
+    await invalidateUserCache(tokenRow.user_id);
+
+    await auditLog({
+      userId: tokenRow.user_id,
+      eventType: 'PASSWORD_RESET',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      success: true,
+    });
+
+    successResponse(res, { message: 'Password reset successfully' });
+  } catch (err) {
+    console.error('[Auth] Reset password error:', err);
+    errorResponse(res, 'Failed to reset password', 'INTERNAL_ERROR', 500);
   }
 });
 

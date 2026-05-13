@@ -371,5 +371,49 @@ describe('Auth Routes', () => {
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
     });
+
+    it('should reset password with a valid token (full happy-path)', async () => {
+      // Drive the flow end-to-end: create user → request reset → pull
+      // the hashed token from DB → submit reset → confirm login with
+      // new password works.
+      const { testPool } = await import('./utils/testDb');
+      const crypto = await import('crypto');
+
+      const user = await createTestUser({ password: 'OriginalPass1!' });
+
+      // Issue a reset token directly (skipping the email side-channel).
+      const rawToken = crypto.randomBytes(16).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      await testPool.query(
+        'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+        [user.id, tokenHash, expiresAt]
+      );
+
+      const resetRes = await request(app)
+        .post('/api/auth/reset-password')
+        .send({ token: rawToken, password: 'NewPassword123!' });
+      expect(resetRes.status).toBe(200);
+      expect(resetRes.body.success).toBe(true);
+
+      // Verify the new password works.
+      const loginRes = await request(app)
+        .post('/api/auth/login')
+        .send({ email: user.email, password: 'NewPassword123!' });
+      expect(loginRes.status).toBe(200);
+      expect(loginRes.body.success).toBe(true);
+
+      // Verify the old password no longer works.
+      const oldLoginRes = await request(app)
+        .post('/api/auth/login')
+        .send({ email: user.email, password: 'OriginalPass1!' });
+      expect(oldLoginRes.status).toBe(401);
+
+      // Token should be single-use now.
+      const replayRes = await request(app)
+        .post('/api/auth/reset-password')
+        .send({ token: rawToken, password: 'AnotherPass1!' });
+      expect(replayRes.status).toBe(400);
+    });
   });
 });

@@ -5,6 +5,9 @@ module.exports = {
   roots: ['<rootDir>/__tests__'],
   testMatch: ['**/__tests__/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js'],
+  // Load .env.test BEFORE any src module imports so the pg pool
+  // points at TEST_DATABASE_URL, not the prod DATABASE_URL.
+  setupFiles: ['<rootDir>/__tests__/utils/loadTestEnv.ts'],
   setupFilesAfterEnv: ['<rootDir>/__tests__/utils/setup.ts'],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageDirectory: 'coverage',

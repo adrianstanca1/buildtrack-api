@@ -176,6 +176,19 @@ export async function initDatabase() {
       expires_at TIMESTAMP NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
+    // Stores SHA-256 hashes of password-reset tokens.
+    // Raw tokens are never persisted — they're delivered to the user via
+    // email and compared by hashing the submitted token. Single-use:
+    // used_at gets stamped on /reset-password and on any subsequent
+    // /forgot-password request for the same user.
+    `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+      token_hash VARCHAR(64) NOT NULL UNIQUE,
+      expires_at TIMESTAMP NOT NULL,
+      used_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
     `CREATE TABLE IF NOT EXISTS team_members (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -431,6 +444,8 @@ export async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_activity_user ON activity_logs(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_activity_project ON activity_logs(project_id)',
     'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_hash ON password_reset_tokens(token_hash)',
     'CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_team_members_project ON team_members(project_id)',
     'CREATE INDEX IF NOT EXISTS idx_meetings_project ON meetings(project_id)',

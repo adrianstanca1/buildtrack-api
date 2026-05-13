@@ -11,7 +11,10 @@
     "db:seed": "psql $DATABASE_URL -f sql/seed.sql",
     "db:reset": "npm run db:schema && npm run db:seed",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest --runInBand --forceExit",
+    "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch",
+    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --runInBand --coverage --forceExit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",

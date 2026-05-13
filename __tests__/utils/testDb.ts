@@ -160,8 +160,32 @@ export async function initTestDatabase() {
       CREATE TABLE IF NOT EXISTS refresh_tokens (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        token TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
         expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+        token_hash VARCHAR(64) NOT NULL UNIQUE,
+        expires_at TIMESTAMP NOT NULL,
+        used_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        event_type VARCHAR(100) NOT NULL,
+        ip_address INET,
+        user_agent TEXT,
+        success BOOLEAN DEFAULT TRUE,
+        details JSONB DEFAULT '{}',
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
@@ -171,9 +195,24 @@ export async function initTestDatabase() {
 }
 
 export async function cleanTestDatabase() {
+  // DELETE rather than TRUNCATE: less aggressive lock (ROW EXCLUSIVE
+  // vs ACCESS EXCLUSIVE) so we don't deadlock against the API pool's
+  // idle connections from prior tests. Order: deepest dependents first
+  // to respect FKs without CASCADE.
   const client = await testPool.connect();
   try {
-    await client.query('TRUNCATE TABLE project_workers, refresh_tokens, activity_logs, notifications, inspections, safety_incidents, tasks, workers, projects, users RESTART IDENTITY CASCADE');
+    await client.query('DELETE FROM password_reset_tokens');
+    await client.query('DELETE FROM audit_logs');
+    await client.query('DELETE FROM project_workers');
+    await client.query('DELETE FROM refresh_tokens');
+    await client.query('DELETE FROM activity_logs');
+    await client.query('DELETE FROM notifications');
+    await client.query('DELETE FROM inspections');
+    await client.query('DELETE FROM safety_incidents');
+    await client.query('DELETE FROM tasks');
+    await client.query('DELETE FROM workers');
+    await client.query('DELETE FROM projects');
+    await client.query('DELETE FROM users');
   } finally {
     client.release();
   }
