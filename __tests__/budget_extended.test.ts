@@ -2,7 +2,7 @@ import request from 'supertest';
 import { createApp } from './utils/testApp';
 import { createTestUser, createTestProject } from './utils/fixtures';
 
-describe('Analytics Routes', () => {
+describe('Budget Routes (Extended)', () => {
   let app: any;
   let authToken: string;
   let userId: string;
@@ -21,33 +21,24 @@ describe('Analytics Routes', () => {
     authToken = login.body.data.accessToken;
   });
 
-  describe('GET /api/analytics/summary', () => {
-    it('should return 401 without token', async () => {
-      const res = await request(app).get('/api/analytics/summary');
-      expect(res.status).toBe(401);
-    });
-
-    it('should return analytics summary for authenticated user', async () => {
+  describe('GET /api/budget/costs', () => {
+    it('should list cost entries', async () => {
       const res = await request(app)
-        .get('/api/analytics/summary')
+        .get('/api/budget/costs')
         .set('Authorization', `Bearer ${authToken}`);
-      expect([200, 404, 500]).toContain(res.status);
-      if (res.status === 200) {
-        expect(res.body.success).toBe(true);
-      }
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
     });
   });
 
-  describe('GET /api/analytics/:projectId', () => {
-    it('should return project analytics', async () => {
+  describe('GET /api/budget/summary/:projectId', () => {
+    it('should return budget summary', async () => {
       const project = await createTestProject(userId);
       const res = await request(app)
-        .get(`/api/analytics/${project.id}`)
+        .get(`/api/budget/summary/${project.id}`)
         .set('Authorization', `Bearer ${authToken}`);
-      expect([200, 404, 500]).toContain(res.status);
-      if (res.status === 200) {
-        expect(res.body.success).toBe(true);
-      }
+      expect([200, 404]).toContain(res.status);
     });
   });
 });

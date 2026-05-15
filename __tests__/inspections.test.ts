@@ -2,7 +2,7 @@ import request from 'supertest';
 import { createApp } from './utils/testApp';
 import { createTestUser, createTestProject } from './utils/fixtures';
 
-describe('Budget Routes', () => {
+describe('Inspections Routes', () => {
   let app: any;
   let authToken: string;
   let userId: string;
@@ -21,15 +21,15 @@ describe('Budget Routes', () => {
     authToken = login.body.data.accessToken;
   });
 
-  describe('GET /api/budget/categories', () => {
+  describe('GET /api/inspections', () => {
     it('should return 401 without token', async () => {
-      const res = await request(app).get('/api/budget/categories');
+      const res = await request(app).get('/api/inspections');
       expect(res.status).toBe(401);
     });
 
-    it('should list budget categories', async () => {
+    it('should list inspections', async () => {
       const res = await request(app)
-        .get('/api/budget/categories')
+        .get('/api/inspections')
         .set('Authorization', `Bearer ${authToken}`);
       expect([200, 500]).toContain(res.status);
       if (res.status === 200) {
@@ -39,21 +39,23 @@ describe('Budget Routes', () => {
     });
   });
 
-  describe('POST /api/budget/categories', () => {
-    it('should create a budget category', async () => {
+  describe('POST /api/inspections', () => {
+    it('should create an inspection', async () => {
       const project = await createTestProject(userId);
       const res = await request(app)
-        .post('/api/budget/categories')
+        .post('/api/inspections')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           projectId: project.id,
-          name: 'Materials',
-          budgetAmount: 50000,
+          title: 'Foundation Inspection',
+          inspectorName: 'John Smith',
+          description: 'Check rebar placement',
+          status: 'pending',
+          date: new Date().toISOString(),
         });
-      expect([201, 200, 500]).toContain(res.status);
-      if (res.status <= 201) {
-        expect(res.body.success).toBe(true);
-      }
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('id');
     });
   });
 });

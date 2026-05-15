@@ -2,7 +2,7 @@ import request from 'supertest';
 import { createApp } from './utils/testApp';
 import { createTestUser, createTestProject } from './utils/fixtures';
 
-describe('Analytics Routes', () => {
+describe('Risk Dashboard Routes', () => {
   let app: any;
   let authToken: string;
   let userId: string;
@@ -21,30 +21,17 @@ describe('Analytics Routes', () => {
     authToken = login.body.data.accessToken;
   });
 
-  describe('GET /api/analytics/summary', () => {
+  describe('GET /api/risk-dashboard', () => {
     it('should return 401 without token', async () => {
-      const res = await request(app).get('/api/analytics/summary');
+      const res = await request(app).get('/api/risk-dashboard');
       expect(res.status).toBe(401);
     });
 
-    it('should return analytics summary for authenticated user', async () => {
+    it('should return risk dashboard data', async () => {
       const res = await request(app)
-        .get('/api/analytics/summary')
+        .get('/api/risk-dashboard')
         .set('Authorization', `Bearer ${authToken}`);
-      expect([200, 404, 500]).toContain(res.status);
-      if (res.status === 200) {
-        expect(res.body.success).toBe(true);
-      }
-    });
-  });
-
-  describe('GET /api/analytics/:projectId', () => {
-    it('should return project analytics', async () => {
-      const project = await createTestProject(userId);
-      const res = await request(app)
-        .get(`/api/analytics/${project.id}`)
-        .set('Authorization', `Bearer ${authToken}`);
-      expect([200, 404, 500]).toContain(res.status);
+      expect([200, 404]).toContain(res.status);
       if (res.status === 200) {
         expect(res.body.success).toBe(true);
       }

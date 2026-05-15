@@ -2,7 +2,7 @@ import request from 'supertest';
 import { createApp } from './utils/testApp';
 import { createTestUser, createTestProject } from './utils/fixtures';
 
-describe('Analytics Routes', () => {
+describe('Project Timeline Routes', () => {
   let app: any;
   let authToken: string;
   let userId: string;
@@ -21,33 +21,19 @@ describe('Analytics Routes', () => {
     authToken = login.body.data.accessToken;
   });
 
-  describe('GET /api/analytics/summary', () => {
+  describe('GET /api/projects/:projectId/timeline', () => {
     it('should return 401 without token', async () => {
-      const res = await request(app).get('/api/analytics/summary');
+      const project = await createTestProject(userId);
+      const res = await request(app).get(`/api/projects/${project.id}/timeline`);
       expect(res.status).toBe(401);
     });
 
-    it('should return analytics summary for authenticated user', async () => {
-      const res = await request(app)
-        .get('/api/analytics/summary')
-        .set('Authorization', `Bearer ${authToken}`);
-      expect([200, 404, 500]).toContain(res.status);
-      if (res.status === 200) {
-        expect(res.body.success).toBe(true);
-      }
-    });
-  });
-
-  describe('GET /api/analytics/:projectId', () => {
-    it('should return project analytics', async () => {
+    it('should return timeline for project', async () => {
       const project = await createTestProject(userId);
       const res = await request(app)
-        .get(`/api/analytics/${project.id}`)
+        .get(`/api/projects/${project.id}/timeline`)
         .set('Authorization', `Bearer ${authToken}`);
       expect([200, 404, 500]).toContain(res.status);
-      if (res.status === 200) {
-        expect(res.body.success).toBe(true);
-      }
     });
   });
 });
