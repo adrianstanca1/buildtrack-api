@@ -56,9 +56,9 @@ router.get('/', authenticateToken, async (req, res) => {
       // Open punch/defects by age
       query(
         `SELECT
-           COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days') as week_old,
-           COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '7 days' AND created_at > NOW() - INTERVAL '30 days') as month_old,
-           COUNT(*) FILTER (WHERE created_at <= NOW() - INTERVAL '30 days') as older
+           COUNT(*) FILTER (WHERE d.created_at > NOW() - INTERVAL '7 days') as week_old,
+           COUNT(*) FILTER (WHERE d.created_at <= NOW() - INTERVAL '7 days' AND d.created_at > NOW() - INTERVAL '30 days') as month_old,
+           COUNT(*) FILTER (WHERE d.created_at <= NOW() - INTERVAL '30 days') as older
          FROM defects d
          JOIN projects p ON d.project_id = p.id
          WHERE p.user_id = $1 AND d.status IN ('open', 'in-progress')`,

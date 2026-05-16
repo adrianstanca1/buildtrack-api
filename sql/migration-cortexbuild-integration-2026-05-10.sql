@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS rfis (
   response TEXT,
   status VARCHAR(20) DEFAULT 'submitted' CHECK (status IN ('submitted', 'open', 'answered', 'approved', 'rejected', 'closed')),
   priority VARCHAR(20) DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
-  due_date VARCHAR(20), -- YYYY-MM-DD
+  due_date DATE, -- PG-native DATE so `due_date < CURRENT_DATE` works (was VARCHAR(20) holding 'YYYY-MM-DD' strings)
   attachment_urls JSONB DEFAULT '[]',
   answered_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
   responded_at TIMESTAMP,
@@ -263,8 +263,8 @@ CREATE TABLE IF NOT EXISTS invoices (
   status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'approved', 'paid', 'overdue', 'cancelled')),
   client_name VARCHAR(255),
   client_email VARCHAR(255),
-  issue_date VARCHAR(20), -- YYYY-MM-DD
-  due_date VARCHAR(20),   -- YYYY-MM-DD
+  issue_date DATE, -- PG-native DATE so date comparisons work (was VARCHAR(20))
+  due_date DATE,   -- ditto
   vat_rate VARCHAR(30) DEFAULT 'standard_20',
   is_cis_job BOOLEAN DEFAULT FALSE,
   cis_deduction_rate INTEGER DEFAULT 0,

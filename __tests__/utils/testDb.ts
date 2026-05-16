@@ -192,6 +192,18 @@ export async function initTestDatabase() {
   } finally {
     client.release();
   }
+
+  // Also run the production initDatabase() against the test DB so tables
+  // defined there (purchase_orders, meetings, materials, equipment,
+  // change_orders, budget_categories, cost_entries, schedules,
+  // timesheet_entries, etc.) exist for route-level tests. The
+  // function-local pool inside src/config/database uses DATABASE_URL,
+  // which the jest setupFiles point at TEST_DATABASE_URL — so
+  // initDatabase() lands in buildtrack_test, not production. All
+  // statements use CREATE TABLE IF NOT EXISTS so re-running on top of
+  // the 12 tables created above is a no-op for those.
+  const { initDatabase } = await import('../../src/config/database');
+  await initDatabase();
 }
 
 export async function cleanTestDatabase() {
