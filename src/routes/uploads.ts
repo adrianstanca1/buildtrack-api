@@ -23,6 +23,22 @@ const upload = multer({
 });
 
 // ─── Single File Upload ──────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/uploads:
+ *   post:
+ *     summary: Create Uploads uploads
+ *     tags: [Uploads]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {

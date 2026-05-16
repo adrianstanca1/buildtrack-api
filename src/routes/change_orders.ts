@@ -37,6 +37,20 @@ const coSchema = z.object({
 const updateSchema = coSchema.partial();
 
 // GET /api/change-orders
+/**
+ * @swagger
+ * /api/change-orders:
+ *   get:
+ *     summary: List or retrieve Change Orders change orders
+ *     tags: [Change Orders]
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const { projectId, status, type, search, page = '1', limit = '20' } = req.query;

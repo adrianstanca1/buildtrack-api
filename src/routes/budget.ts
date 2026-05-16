@@ -41,6 +41,20 @@ const updateCostEntrySchema = costEntrySchema.partial();
 
 // ─── Budget Categories ──────────────────────────────────────
 
+/**
+ * @swagger
+ * /api/budget/categories:
+ *   get:
+ *     summary: List or retrieve Budget categories
+ *     tags: [Budget]
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/categories', optionalAuth, async (req, res, next) => {
   try {
     const { projectId } = req.query;

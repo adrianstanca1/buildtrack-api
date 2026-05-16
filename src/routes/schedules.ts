@@ -35,6 +35,20 @@ const scheduleSchema = z.object({
 
 const updateSchema = scheduleSchema.partial();
 
+/**
+ * @swagger
+ * /api/schedules:
+ *   get:
+ *     summary: List or retrieve Schedules schedules
+ *     tags: [Schedules]
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const { projectId, status, isMilestone, search, page = '1', limit = '50' } = req.query;

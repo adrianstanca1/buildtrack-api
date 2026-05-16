@@ -26,6 +26,22 @@ const magicLinkSchema = z.object({
 });
 
 // ─── List Guests ─────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/guests:
+ *   get:
+ *     summary: List or retrieve Guests guests
+ *     tags: [Guests]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

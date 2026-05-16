@@ -28,6 +28,22 @@ const defectSchema = z.object({
 const defectIdSchema = z.object({ id: z.string().uuid() });
 
 // ─── List Defects ────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/defects:
+ *   get:
+ *     summary: List or retrieve Defects defects
+ *     tags: [Defects]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

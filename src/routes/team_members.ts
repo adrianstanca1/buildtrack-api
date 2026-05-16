@@ -22,6 +22,22 @@ const teamMemberSchema = z.object({
 const teamMemberIdSchema = z.object({ id: z.string().uuid() });
 
 // ─── List Team Members ───────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/team-members:
+ *   get:
+ *     summary: List or retrieve Team Members team members
+ *     tags: [Team Members]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

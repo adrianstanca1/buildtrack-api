@@ -36,6 +36,22 @@ const meetingWithAttendeesSchema = meetingSchema.extend({
 const meetingIdSchema = z.object({ id: z.string().uuid() });
 
 // ─── List Meetings ────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/meetings:
+ *   get:
+ *     summary: List or retrieve Meetings meetings
+ *     tags: [Meetings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

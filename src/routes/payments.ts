@@ -26,6 +26,22 @@ const confirmSchema = z.object({
  * POST /api/payments/create-intent
  * Create a Stripe PaymentIntent for an invoice.
  */
+/**
+ * @swagger
+ * /api/payments/create-intent:
+ *   post:
+ *     summary: Create Payments create intent
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.post('/create-intent', authenticateToken, validate(createIntentSchema), async (req, res) => {
   try {
     const userId = req.user!.id;

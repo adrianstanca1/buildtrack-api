@@ -18,6 +18,22 @@ const userIdSchema = z.object({ id: z.string().uuid() });
 // All admin routes require admin or super_admin
 router.use(authenticateToken, requireRole('admin', 'super_admin'));
 
+/**
+ * @swagger
+ * /api/admin/users:
+ *   get:
+ *     summary: List or retrieve Admin users
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/users', async (req, res) => {
   try {
     const page = parseInt(req.query.page as string) || 1;

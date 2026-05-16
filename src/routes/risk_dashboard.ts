@@ -6,6 +6,22 @@ import { successResponse, errorResponse } from '../utils/response.js';
 const router = Router();
 
 // ─── Risk Dashboard ──────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/risk-dashboard:
+ *   get:
+ *     summary: List or retrieve Risk Dashboard risk dashboard
+ *     tags: [Risk Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

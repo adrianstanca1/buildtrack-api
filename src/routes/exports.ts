@@ -11,6 +11,22 @@ const router = Router();
 const exportSchema = z.object({ id: z.string().uuid() });
 
 // ─── Export Closeout Package ──────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/exports/projects/{id}/closeout:
+ *   get:
+ *     summary: List or retrieve Exports closeout
+ *     tags: [Exports]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/projects/:id/closeout', authenticateToken, validateParams(exportSchema), async (req, res) => {
   try {
     const userId = req.user!.id;

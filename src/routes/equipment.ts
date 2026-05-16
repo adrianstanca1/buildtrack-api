@@ -40,6 +40,22 @@ const maintenanceSchema = z.object({
 const equipmentIdSchema = z.object({ id: z.string().uuid() });
 
 // ─── List Equipment ─────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/equipment:
+ *   get:
+ *     summary: List or retrieve Equipment equipment
+ *     tags: [Equipment]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

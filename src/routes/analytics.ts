@@ -14,6 +14,22 @@ const router = Router();
  * GET /api/analytics/:projectId
  * Project-level analytics metrics.
  */
+/**
+ * @swagger
+ * /api/analytics/{projectId}:
+ *   get:
+ *     summary: List or retrieve Analytics analytics
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/:projectId', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

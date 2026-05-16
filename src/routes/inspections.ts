@@ -20,6 +20,22 @@ const inspectionSchema = z.object({
 
 const inspectionIdSchema = z.object({ id: z.string().uuid() });
 
+/**
+ * @swagger
+ * /api/inspections:
+ *   get:
+ *     summary: List or retrieve Inspections inspections
+ *     tags: [Inspections]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

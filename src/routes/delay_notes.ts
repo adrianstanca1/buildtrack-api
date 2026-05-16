@@ -21,6 +21,22 @@ const statusSchema = z.object({
 });
 
 // ─── List Delay Notes ──────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/delay-notes:
+ *   get:
+ *     summary: List or retrieve Delay Notes delay notes
+ *     tags: [Delay Notes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

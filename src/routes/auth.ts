@@ -11,6 +11,7 @@ import { successResponse, errorResponse } from '../utils/response.js';
 import { logger } from '../utils/logger.js';
 import { auditLog } from '../utils/audit.js';
 import { invalidateUserCache } from '../config/redis.js';
+import { sendEmail } from '../utils/sendEmail.js';
 
 const router = Router();
 
@@ -555,9 +556,20 @@ router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res)
         [userId, tokenHash, expiresAt]
       );
 
-      // TODO: wire to email provider (Brevo/SendGrid). For dev we log the URL.
       const appUrl = process.env.APP_URL || 'https://buildtrack.cortexbuildpro.com';
       const resetUrl = `${appUrl}/reset-password?token=${rawToken}`;
+
+      try {
+        await sendEmail({
+          to: normalised,
+          subject: 'Reset your BuildTrack password',
+          text: `Click the link below to reset your password. This link expires in 1 hour.\n\n${resetUrl}\n\nIf you did not request a password reset, you can safely ignore this email.`,
+          html: `<p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>If you did not request a password reset, you can safely ignore this email.</p>`,
+        });
+      } catch (emailErr) {
+        logger.error('[Auth] Failed to send reset email to ' + normalised, emailErr);
+      }
+
       logger.info(`[Auth] Password reset for ${normalised} → ${resetUrl}`);
 
       await auditLog({

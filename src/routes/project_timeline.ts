@@ -19,6 +19,22 @@ interface TimelineEvent {
 }
 
 // ─── Project Activity Timeline ─────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/projects/{projectId}/timeline:
+ *   get:
+ *     summary: List or retrieve Project Timeline timeline
+ *     tags: [Project Timeline]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

@@ -27,6 +27,22 @@ const timesheetEntrySchema = z.object({
 const entryIdSchema = z.object({ id: z.string().uuid() });
 
 // ─── List Timesheet Entries ───────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/timesheets:
+ *   get:
+ *     summary: List or retrieve Timesheets timesheets
+ *     tags: [Timesheets]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

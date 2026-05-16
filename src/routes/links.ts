@@ -30,6 +30,22 @@ const recordParamsSchema = z.object({
 });
 
 // ─── Create Link ──────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/links:
+ *   post:
+ *     summary: Create Links links
+ *     tags: [Links]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.post('/', authenticateToken, validate(createLinkSchema), async (req, res) => {
   try {
     const { sourceType, sourceId, targetType, targetId, relation } = req.body;

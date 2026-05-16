@@ -18,6 +18,22 @@ const sitePhotoSchema = z.object({
 const sitePhotoIdSchema = z.object({ id: z.string().uuid() });
 
 // ─── List Site Photos ──────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/site-photos:
+ *   get:
+ *     summary: List or retrieve Site Photos site photos
+ *     tags: [Site Photos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

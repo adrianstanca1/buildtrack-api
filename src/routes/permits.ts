@@ -25,6 +25,22 @@ const permitSchema = z.object({
 const permitIdSchema = z.object({ id: z.string().uuid() });
 
 // ─── List Permits ────────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/permits:
+ *   get:
+ *     summary: List or retrieve Permits permits
+ *     tags: [Permits]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

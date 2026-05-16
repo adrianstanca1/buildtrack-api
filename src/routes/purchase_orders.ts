@@ -40,6 +40,22 @@ const purchaseOrderSchema = z.object({
 const poIdSchema = z.object({ id: z.string().uuid() });
 
 // ─── List Purchase Orders ────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/purchase-orders:
+ *   get:
+ *     summary: List or retrieve Purchase Orders purchase orders
+ *     tags: [Purchase Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;

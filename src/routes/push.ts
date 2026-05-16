@@ -21,6 +21,22 @@ const testPushSchema = z.object({
 /**
  * Register or update the user's push token.
  */
+/**
+ * @swagger
+ * /api/push/register-token:
+ *   post:
+ *     summary: Create Push Notifications register token
+ *     tags: [Push Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ *       401:
+ *         description: Unauthorized
+ */
+
+
 router.post('/register-token', authenticateToken, validate(registerTokenSchema), async (req, res) => {
   try {
     const userId = req.user!.id;
