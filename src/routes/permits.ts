@@ -206,7 +206,10 @@ router.delete('/:id', authenticateToken, validateParams(permitIdSchema), async (
       return errorResponse(res, 'Permit not found', 'NOT_FOUND', 404);
     }
 
+    const row_for_emit_permits = await query('SELECT id, project_id FROM permits WHERE id = $1', [req.params.id]);
     await query('DELETE FROM permits WHERE id = $1', [req.params.id]);
+    emitEntityEvent('permit', 'deleted', row_for_emit_permits.rows[0]);
+    
     successResponse(res, { message: 'Permit deleted' });
   } catch (err) {
     console.error('[Permits] Delete error:', err);

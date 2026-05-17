@@ -214,7 +214,10 @@ router.delete('/:id', authenticateToken, validateParams(invoiceIdSchema), async 
     }
 
     await query('DELETE FROM invoice_line_items WHERE invoice_id = $1', [req.params.id]);
+    const row_for_emit_invoices = await query('SELECT id, project_id FROM invoices WHERE id = $1', [req.params.id]);
     await query('DELETE FROM invoices WHERE id = $1', [req.params.id]);
+    emitEntityEvent('invoice', 'deleted', row_for_emit_invoices.rows[0]);
+    
     successResponse(res, { message: 'Invoice deleted' });
   } catch (err) {
     console.error('[Invoices] Delete error:', err);

@@ -205,7 +205,10 @@ router.delete('/:id', authenticateToken, validateParams(drawingIdSchema), async 
     }
 
     await query('DELETE FROM drawing_pins WHERE drawing_id = $1', [req.params.id]);
+    const row_for_emit_drawings = await query('SELECT id, project_id FROM drawings WHERE id = $1', [req.params.id]);
     await query('DELETE FROM drawings WHERE id = $1', [req.params.id]);
+    emitEntityEvent('drawing', 'deleted', row_for_emit_drawings.rows[0]);
+    
     successResponse(res, { message: 'Drawing deleted' });
   } catch (err) {
     console.error('[Drawings] Delete error:', err);
