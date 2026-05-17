@@ -70,6 +70,26 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// GET /api/admin/users/:id — single-user fetch for the admin detail screen.
+router.get('/users/:id', validateParams(userIdSchema), async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, email, first_name, last_name, role, company_name, phone,
+              subscription_tier, subscription_status, created_at, updated_at
+         FROM users
+        WHERE id = $1
+        LIMIT 1`,
+      [req.params.id],
+    );
+    if (result.rows.length === 0) {
+      return errorResponse(res, 'User not found', 'NOT_FOUND', 404);
+    }
+    successResponse(res, result.rows[0]);
+  } catch (err) {
+    errorResponse(res, 'Failed to fetch user', 'INTERNAL_ERROR', 500);
+  }
+});
+
 router.put('/users/:id', validateParams(userIdSchema), validate(userUpdateSchema), async (req, res) => {
   try {
     const userId = req.params.id;
