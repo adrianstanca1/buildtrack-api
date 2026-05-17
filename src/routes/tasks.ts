@@ -58,6 +58,28 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Helper: broadcast a task event to the project room.
+// `(global as any).io` is wired up in src/server.ts after Socket.IO init.
+// Wrapped in a try/catch because the io global may be undefined if a route
+// is exercised before server-startup completes (e.g. integration tests
+// that import this router directly without booting the HTTP server).
+function emitTaskEvent(
+  eventType: 'task-created' | 'task-updated' | 'task-deleted' | 'task-completed',
+  task: Record<string, any>,
+) {
+  try {
+    const io = (global as any).io;
+    if (!io || !task?.project_id) return;
+    io.to(`project:${task.project_id}`).emit(eventType, {
+      type: eventType,
+      task,
+      at: new Date().toISOString(),
+    });
+  } catch {
+    // Best-effort broadcast — never fail the HTTP response over a missed emit.
+  }
+}
+
 router.post('/', authenticateToken, validate(taskSchema), async (req, res) => {
   try {
     const { projectId, title, description, assignedTo, priority, status, dueDate } = req.body;
@@ -74,6 +96,7 @@ router.post('/', authenticateToken, validate(taskSchema), async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [projectId || null, title, description || null, assignedTo || null, priority || 'medium', status || 'pending', dueDate || null]
     );
+    emitTaskEvent('task-created', result.rows[0]);
     successResponse(res, result.rows[0], 201);
   } catch (err) {
     errorResponse(res, 'Failed to create task', 'INTERNAL_ERROR', 500);
@@ -114,6 +137,7 @@ router.put('/:id', authenticateToken, validateParams(taskIdSchema), validate(tas
     const result = await query(sql, values);
 
     if (result.rows.length === 0) return errorResponse(res, 'Task not found', 'NOT_FOUND', 404);
+    emitTaskEvent('task-updated', result.rows[0]);
     successResponse(res, result.rows[0]);
   } catch (err) {
     errorResponse(res, 'Failed to update task', 'INTERNAL_ERROR', 500);
@@ -122,8 +146,11 @@ router.put('/:id', authenticateToken, validateParams(taskIdSchema), validate(tas
 
 router.delete('/:id', authenticateToken, validateParams(taskIdSchema), async (req, res) => {
   try {
+    // Need project_id to know which room to broadcast to — fetch before delete.
+    const before = await query('SELECT id, project_id FROM tasks WHERE id = $1', [req.params.id]);
     const result = await query('DELETE FROM tasks WHERE id = $1 RETURNING id', [req.params.id]);
     if (result.rows.length === 0) return errorResponse(res, 'Task not found', 'NOT_FOUND', 404);
+    if (before.rows[0]) emitTaskEvent('task-deleted', before.rows[0]);
     successResponse(res, { message: 'Task deleted' });
   } catch (err) {
     errorResponse(res, 'Failed to delete task', 'INTERNAL_ERROR', 500);
@@ -137,6 +164,7 @@ router.post('/:id/complete', authenticateToken, validateParams(taskIdSchema), as
       [req.params.id]
     );
     if (result.rows.length === 0) return errorResponse(res, 'Task not found', 'NOT_FOUND', 404);
+    emitTaskEvent('task-completed', result.rows[0]);
     successResponse(res, result.rows[0]);
   } catch (err) {
     errorResponse(res, 'Failed to complete task', 'INTERNAL_ERROR', 500);
