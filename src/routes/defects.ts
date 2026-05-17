@@ -6,6 +6,7 @@ import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
 import { linkRecord } from '../utils/links.js';
+import { emitEntityEvent } from '../utils/realtime.js';
 
 const router = Router();
 
@@ -123,6 +124,7 @@ router.post('/', authenticateToken, validate(defectSchema), async (req, res) => 
       await linkRecord('defect', id, 'rfi', linkedRfiId, 'linked_rfi', userId);
     }
 
+    emitEntityEvent('defect', 'created', result.rows[0]);
     successResponse(res, result.rows[0], 201);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -198,6 +200,7 @@ router.put('/:id', authenticateToken, validateParams(defectIdSchema), validate(d
     values.push(defectId);
     const sql = `UPDATE defects SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`;
     const result = await query(sql, values);
+    emitEntityEvent('defect', 'updated', result.rows[0]);
     successResponse(res, result.rows[0]);
   } catch (err) {
     console.error('[Defects] Update error:', err);
@@ -209,7 +212,7 @@ router.put('/:id', authenticateToken, validateParams(defectIdSchema), validate(d
 router.delete('/:id', authenticateToken, validateParams(defectIdSchema), async (req, res) => {
   try {
     const check = await query(
-      `SELECT d.id FROM defects d JOIN projects p ON d.project_id = p.id WHERE d.id = $1 AND p.user_id = $2`,
+      `SELECT d.id, d.project_id FROM defects d JOIN projects p ON d.project_id = p.id WHERE d.id = $1 AND p.user_id = $2`,
       [req.params.id, req.user!.id]
     );
     if (check.rows.length === 0) {
@@ -217,6 +220,7 @@ router.delete('/:id', authenticateToken, validateParams(defectIdSchema), async (
     }
 
     await query('DELETE FROM defects WHERE id = $1', [req.params.id]);
+    emitEntityEvent('defect', 'deleted', check.rows[0]);
     successResponse(res, { message: 'Defect deleted' });
   } catch (err) {
     console.error('[Defects] Delete error:', err);

@@ -5,6 +5,7 @@ import { query, pool } from '../config/database.js';
 import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
+import { emitEntityEvent } from '../utils/realtime.js';
 
 const router = Router();
 
@@ -129,6 +130,7 @@ router.post('/', authenticateToken, validate(dailyReportSchema), async (req, res
       })
     );
 
+    emitEntityEvent('daily-report', 'created', result.rows[0]);
     successResponse(res, { ...result.rows[0], riskSignals }, 201);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -226,6 +228,7 @@ router.put('/:id', authenticateToken, validateParams(dailyReportIdSchema), valid
     const result = await client.query(sql, values);
 
     await client.query('COMMIT');
+    emitEntityEvent('daily-report', 'updated', result.rows[0]);
     successResponse(res, result.rows[0]);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -241,7 +244,7 @@ router.delete('/:id', authenticateToken, validateParams(dailyReportIdSchema), as
   try {
     const userId = req.user!.id;
     const check = await query(
-      `SELECT dr.id FROM daily_reports dr
+      `SELECT dr.id, dr.project_id FROM daily_reports dr
        JOIN projects p ON dr.project_id = p.id
        WHERE dr.id = $1 AND p.user_id = $2`,
       [req.params.id, userId]
@@ -251,6 +254,7 @@ router.delete('/:id', authenticateToken, validateParams(dailyReportIdSchema), as
     }
 
     await query('DELETE FROM daily_reports WHERE id = $1', [req.params.id]);
+    emitEntityEvent('daily-report', 'deleted', check.rows[0]);
     successResponse(res, { message: 'Daily report deleted' });
   } catch (err) {
     console.error('[DailyReports] Delete error:', err);

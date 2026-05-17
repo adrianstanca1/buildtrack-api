@@ -6,6 +6,7 @@ import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
 import { linkRecord } from '../utils/links.js';
+import { emitEntityEvent } from '../utils/realtime.js';
 
 const router = Router();
 
@@ -135,6 +136,7 @@ router.post('/', authenticateToken, validate(rfiSchema), async (req, res) => {
       await linkRecord('rfi', id, 'drawing', linkedDrawingId, 'linked_drawing', userId);
     }
 
+    emitEntityEvent('rfi', 'created', result.rows[0]);
     successResponse(res, result.rows[0], 201);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -216,6 +218,10 @@ router.put('/:id', authenticateToken, validateParams(rfiIdSchema), validate(rfiS
     values.push(rfiId);
     const sql = `UPDATE rfis SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`;
     const result = await query(sql, values);
+    // RFIs have a special-cased "answered" verb when status transitions to
+    // 'answered'; otherwise just the generic 'updated'.
+    const verb = result.rows[0]?.status === 'answered' && req.body.response ? 'answered' : 'updated';
+    emitEntityEvent('rfi', verb, result.rows[0]);
     successResponse(res, result.rows[0]);
   } catch (err) {
     console.error('[RFIs] Update error:', err);
@@ -227,7 +233,7 @@ router.put('/:id', authenticateToken, validateParams(rfiIdSchema), validate(rfiS
 router.delete('/:id', authenticateToken, validateParams(rfiIdSchema), async (req, res) => {
   try {
     const check = await query(
-      `SELECT r.id FROM rfis r JOIN projects p ON r.project_id = p.id WHERE r.id = $1 AND p.user_id = $2`,
+      `SELECT r.id, r.project_id FROM rfis r JOIN projects p ON r.project_id = p.id WHERE r.id = $1 AND p.user_id = $2`,
       [req.params.id, req.user!.id]
     );
     if (check.rows.length === 0) {
@@ -235,6 +241,7 @@ router.delete('/:id', authenticateToken, validateParams(rfiIdSchema), async (req
     }
 
     await query('DELETE FROM rfis WHERE id = $1', [req.params.id]);
+    emitEntityEvent('rfi', 'deleted', check.rows[0]);
     successResponse(res, { message: 'RFI deleted' });
   } catch (err) {
     console.error('[RFIs] Delete error:', err);
