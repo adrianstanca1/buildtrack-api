@@ -7,6 +7,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
 import { auditLog } from '../utils/audit.js';
 import { linkRecord } from '../utils/links.js';
+import { emitEntityEvent } from '../utils/realtime.js';
 
 const router = Router();
 
@@ -310,6 +311,7 @@ router.delete('/:id', authenticateToken, validateParams(meetingIdSchema), async 
       details: { entityId: id },
     });
 
+    emitEntityEvent('meeting', 'updated', { message: 'Meeting deleted' });
     successResponse(res, { message: 'Meeting deleted' });
   } catch (err: any) {
     console.error('[Meetings] Delete error:', err);

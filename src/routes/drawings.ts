@@ -6,6 +6,7 @@ import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
 import { linkRecord } from '../utils/links.js';
+import { emitEntityEvent } from '../utils/realtime.js';
 
 const router = Router();
 
@@ -113,6 +114,7 @@ router.post('/', authenticateToken, validate(drawingSchema), async (req, res) =>
       await linkRecord('drawing', id, 'submittal', linkedSubmittalId, 'linked_submittal', userId);
     }
 
+    emitEntityEvent('drawing', 'created', result.rows[0]);
     successResponse(res, result.rows[0], 201);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -183,6 +185,7 @@ router.put('/:id', authenticateToken, validateParams(drawingIdSchema), validate(
     values.push(drawingId);
     const sql = `UPDATE drawings SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`;
     const result = await query(sql, values);
+    emitEntityEvent('drawing', 'updated', result.rows[0]);
     successResponse(res, result.rows[0]);
   } catch (err) {
     console.error('[Drawings] Update error:', err);

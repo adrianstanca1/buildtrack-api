@@ -19,7 +19,10 @@ type EntityName =
   | 'submittal'
   | 'punch-item'
   | 'drawing'
-  | 'permit';
+  | 'permit'
+  | 'equipment'
+  | 'meeting'
+  | 'timesheet';
 
 type Verb = 'created' | 'updated' | 'deleted' | 'completed' | 'closed' | 'answered';
 

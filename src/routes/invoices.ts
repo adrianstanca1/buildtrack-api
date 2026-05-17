@@ -5,6 +5,7 @@ import { query, pool } from '../config/database.js';
 import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
+import { emitEntityEvent } from '../utils/realtime.js';
 
 const router = Router();
 
@@ -114,6 +115,7 @@ router.post('/', authenticateToken, validate(invoiceSchema), async (req, res) =>
     );
 
     await client.query('COMMIT');
+    emitEntityEvent('invoice', 'created', result.rows[0]);
     successResponse(res, result.rows[0], 201);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -192,6 +194,7 @@ router.put('/:id', authenticateToken, validateParams(invoiceIdSchema), validate(
     values.push(invoiceId);
     const sql = `UPDATE invoices SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`;
     const result = await query(sql, values);
+    emitEntityEvent('invoice', 'updated', result.rows[0]);
     successResponse(res, result.rows[0]);
   } catch (err) {
     console.error('[Invoices] Update error:', err);

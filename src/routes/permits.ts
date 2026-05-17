@@ -5,6 +5,7 @@ import { query, pool } from '../config/database.js';
 import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
+import { emitEntityEvent } from '../utils/realtime.js';
 
 const router = Router();
 
@@ -110,6 +111,7 @@ router.post('/', authenticateToken, validate(permitSchema), async (req, res) => 
     );
 
     await client.query('COMMIT');
+    emitEntityEvent('permit', 'created', result.rows[0]);
     successResponse(res, result.rows[0], 201);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -185,6 +187,7 @@ router.put('/:id', authenticateToken, validateParams(permitIdSchema), validate(p
     values.push(permitId);
     const sql = `UPDATE permits SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`;
     const result = await query(sql, values);
+    emitEntityEvent('permit', 'updated', result.rows[0]);
     successResponse(res, result.rows[0]);
   } catch (err) {
     console.error('[Permits] Update error:', err);

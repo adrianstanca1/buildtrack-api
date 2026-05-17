@@ -5,6 +5,7 @@ import { query } from '../config/database.js';
 import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
+import { emitEntityEvent } from '../utils/realtime.js';
 import { auditLog } from '../utils/audit.js';
 
 const router = Router();
@@ -283,6 +284,7 @@ router.delete('/:id', authenticateToken, validateParams(equipmentIdSchema), asyn
       details: { entityId: id },
     });
 
+    emitEntityEvent('equipment', 'updated', { message: 'Equipment deleted' });
     successResponse(res, { message: 'Equipment deleted' });
   } catch (err: any) {
     console.error('[Equipment] Delete error:', err);
