@@ -21,12 +21,7 @@ describe('Links Routes', () => {
     authToken = login.body.data.accessToken;
   });
 
-  // SKIP: src/routes/links.ts exposes no GET /api/links list endpoint —
-  // only POST / (create entity link) and GET /:type/:id/related (list links
-  // for a specific record). These tests assume a generic list endpoint that
-  // doesn't exist. Unskip once a list endpoint is added or rewrite tests
-  // to use GET /:type/:id/related.
-  describe.skip('GET /api/links', () => {
+  describe('GET /api/links', () => {
     it('should return 401 without token', async () => {
       const res = await request(app).get('/api/links');
       expect(res.status).toBe(401);

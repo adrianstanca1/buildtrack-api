@@ -15,7 +15,7 @@ const drawingSchema = z.object({
   description: z.string().optional(),
   fileUrl: z.string().url(),
   version: z.string().max(20).optional(),
-  status: z.enum(['active', 'superseded', 'archived']).optional(),
+  status: z.enum(['current', 'superseded', 'archived']).optional(),
   linkedRfiId: z.string().uuid().optional(),
   linkedSubmittalId: z.string().uuid().optional(),
 });
@@ -95,10 +95,12 @@ router.post('/', authenticateToken, validate(drawingSchema), async (req, res) =>
     }
 
     const id = uuidv4();
+    // Schema columns: project_id, uploaded_by_id, title, revision, file_url, status.
+    // `description` is accepted by zod for forward-compat but not persisted yet.
     const result = await client.query(
-      `INSERT INTO drawings (id, project_id, title, description, file_url, version, status, uploaded_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()) RETURNING *`,
-      [id, projectId, title, description || null, fileUrl, version || '1.0', status || 'active', userId]
+      `INSERT INTO drawings (id, project_id, title, revision, file_url, status, uploaded_by_id, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING *`,
+      [id, projectId, title, version || '1.0', fileUrl, status || 'active', userId]
     );
 
     await client.query('COMMIT');

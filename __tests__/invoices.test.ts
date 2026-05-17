@@ -37,12 +37,7 @@ describe('Invoices Routes', () => {
     });
   });
 
-  // SKIP: Route src/routes/invoices.ts INSERTs into supplier/amount/total_amount
-  // columns that don't exist in the CIS-aware invoices schema (real columns:
-  // client_name, subtotal, total, plus CIS-specific fields). The route was
-  // written for a simpler schema. Unskip once src/routes/invoices.ts is
-  // aligned with the schema in sql/migration-cortexbuild-integration-2026-05-10.sql.
-  describe.skip('POST /api/invoices', () => {
+  describe('POST /api/invoices', () => {
     it('should create an invoice', async () => {
       const project = await createTestProject(userId);
       const res = await request(app)

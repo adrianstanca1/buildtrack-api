@@ -103,11 +103,14 @@ router.post('/', authenticateToken, validate(invoiceSchema), async (req, res) =>
     }
 
     const id = uuidv4();
-    const totalAmount = (amount || 0) + (vatAmount || 0);
+    // CIS-aware invoices schema: subtotal (was `amount`), total (was `total_amount`),
+    // client_name (was `supplier`). Map the legacy body fields onto the new columns.
+    const subtotal = amount || 0;
+    const totalAmount = subtotal + (vatAmount || 0);
     const result = await client.query(
-      `INSERT INTO invoices (id, project_id, invoice_number, supplier, amount, vat_amount, total_amount, status, due_date, notes, created_at, updated_at)
+      `INSERT INTO invoices (id, project_id, invoice_number, client_name, subtotal, vat_amount, total, status, due_date, notes, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()) RETURNING *`,
-      [id, projectId, invoiceNumber, supplier || null, amount || 0, vatAmount || 0, totalAmount, status || 'draft', dueDate || null, notes || null]
+      [id, projectId, invoiceNumber, supplier || null, subtotal, vatAmount || 0, totalAmount, status || 'draft', dueDate || null, notes || null]
     );
 
     await client.query('COMMIT');

@@ -46,6 +46,24 @@ const recordParamsSchema = z.object({
  */
 
 
+// ─── List Links ─────────────────────────────────────────────────────────────
+// Lists every link this user has created. Tenant scope is enforced via
+// links.created_by = userId. Returns newest-first.
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const result = await query(
+      `SELECT id, source_type, source_id, target_type, target_id, relation, created_by, created_at
+         FROM links WHERE created_by = $1 ORDER BY created_at DESC LIMIT 500`,
+      [userId]
+    );
+    successResponse(res, result.rows);
+  } catch (err) {
+    console.error('[Links] List error:', err);
+    errorResponse(res, 'Failed to list links', 'INTERNAL_ERROR', 500);
+  }
+});
+
 router.post('/', authenticateToken, validate(createLinkSchema), async (req, res) => {
   try {
     const { sourceType, sourceId, targetType, targetId, relation } = req.body;
