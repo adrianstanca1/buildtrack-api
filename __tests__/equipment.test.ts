@@ -47,8 +47,8 @@ describe('Equipment Routes', () => {
           projectId: project.id,
           name: 'Excavator 320D',
           type: 'excavator',
-          status: 'active',
-          hourlyRate: 120,
+          status: 'available',
+          dailyRate: 960,
         });
       expect([201, 200]).toContain(res.status);
       expect(res.body.success).toBe(true);

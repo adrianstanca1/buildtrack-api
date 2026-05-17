@@ -45,10 +45,10 @@ describe('Daily Reports Routes', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           projectId: project.id,
-          date: new Date().toISOString(),
+          reportDate: new Date().toISOString(),
           weather: 'Sunny, 22C',
           workCompleted: 'Framing first floor',
-          notes: 'On schedule',
+          submittedBy: 'Test Foreman',
         });
       expect([201, 200]).toContain(res.status);
       expect(res.body.success).toBe(true);

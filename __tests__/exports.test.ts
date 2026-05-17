@@ -19,17 +19,19 @@ describe('Exports Routes', () => {
     authToken = login.body.data.accessToken;
   });
 
-  describe('GET /api/exports', () => {
+  // /api/exports is a /projects/:id/closeout-shaped endpoint, not a list.
+  describe('GET /api/exports/projects/:id/closeout', () => {
     it('should return 401 without token', async () => {
-      const res = await request(app).get('/api/exports');
+      const res = await request(app)
+        .get('/api/exports/projects/00000000-0000-0000-0000-000000000001/closeout');
       expect(res.status).toBe(401);
     });
 
-    it('should list exports', async () => {
+    it('should return 404/400 for missing project (auth passed)', async () => {
       const res = await request(app)
-        .get('/api/exports')
+        .get('/api/exports/projects/00000000-0000-0000-0000-000000000001/closeout')
         .set('Authorization', `Bearer ${authToken}`);
-      expect([200, 404]).toContain(res.status);
+      expect([200, 404, 400]).toContain(res.status);
     });
   });
 });

@@ -45,10 +45,10 @@ describe('Schedules Routes', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           projectId: project.id,
-          title: 'Week 1 - Foundation',
-          startDate: new Date().toISOString(),
-          endDate: new Date(Date.now() + 7 * 86400000).toISOString(),
-          progress: 0,
+          name: 'Week 1 - Foundation',
+          startDate: new Date().toISOString().slice(0, 10),
+          endDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+          progressPercent: 0,
           status: 'not_started',
         });
       expect([201, 200]).toContain(res.status);

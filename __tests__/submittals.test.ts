@@ -45,11 +45,12 @@ describe('Submittals Routes', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           projectId: project.id,
+          submittalNumber: `SUB-${Date.now()}`,
           title: 'Window Specification Submittal',
           description: 'Aluminium frame windows - thermal break',
-          vendor: 'WindowPro',
+          responsibleCompany: 'WindowPro',
           status: 'submitted',
-          dueDate: new Date(Date.now() + 14 * 86400000).toISOString(),
+          dueDate: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
         });
       expect([201, 200]).toContain(res.status);
       expect(res.body.success).toBe(true);

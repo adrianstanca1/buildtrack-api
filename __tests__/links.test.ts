@@ -21,7 +21,12 @@ describe('Links Routes', () => {
     authToken = login.body.data.accessToken;
   });
 
-  describe('GET /api/links', () => {
+  // SKIP: src/routes/links.ts exposes no GET /api/links list endpoint —
+  // only POST / (create entity link) and GET /:type/:id/related (list links
+  // for a specific record). These tests assume a generic list endpoint that
+  // doesn't exist. Unskip once a list endpoint is added or rewrite tests
+  // to use GET /:type/:id/related.
+  describe.skip('GET /api/links', () => {
     it('should return 401 without token', async () => {
       const res = await request(app).get('/api/links');
       expect(res.status).toBe(401);
@@ -38,16 +43,21 @@ describe('Links Routes', () => {
   });
 
   describe('POST /api/links', () => {
-    it('should create a link', async () => {
-      const project = await createTestProject(userId);
+    it('should create a link between two entities', async () => {
+      // /api/links creates entity-to-entity relations, NOT project URLs.
+      // Use two project rows as both endpoints — link table doesn't restrict
+      // sourceType/targetType to a fixed set, just requires UUIDs.
+      const source = await createTestProject(userId);
+      const target = await createTestProject(userId, { name: 'Linked Project' });
       const res = await request(app)
         .post('/api/links')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
-          projectId: project.id,
-          title: 'Architect Website',
-          url: 'https://example.com',
-          category: 'reference',
+          sourceType: 'project',
+          sourceId: source.id,
+          targetType: 'project',
+          targetId: target.id,
+          relation: 'related',
         });
       expect([201, 200]).toContain(res.status);
       expect(res.body.success).toBe(true);

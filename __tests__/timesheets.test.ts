@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { createApp } from './utils/testApp';
 import { createTestUser, createTestProject } from './utils/fixtures';
+import { query } from '../src/config/database';
 
 describe('Timesheets Routes', () => {
   let app: any;
@@ -40,15 +41,23 @@ describe('Timesheets Routes', () => {
   describe('POST /api/timesheets', () => {
     it('should create a timesheet entry', async () => {
       const project = await createTestProject(userId);
+      // Timesheets reference workers via worker_id FK — create one inline.
+      const worker = await query(
+        `INSERT INTO workers (user_id, name, role, status, hourly_rate)
+         VALUES ($1, 'Test Carpenter', 'carpenter', 'active', 25)
+         RETURNING id`,
+        [userId]
+      );
       const res = await request(app)
         .post('/api/timesheets')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           projectId: project.id,
-          date: new Date().toISOString(),
-          hours: 8,
-          description: 'Framing work',
-          category: 'labour',
+          workerId: worker.rows[0].id,
+          entryDate: new Date().toISOString().slice(0, 10),
+          hoursWorked: 8,
+          workDescription: 'Framing work',
+          category: 'regular',
         });
       expect([201, 200]).toContain(res.status);
       expect(res.body.success).toBe(true);

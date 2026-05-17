@@ -45,10 +45,11 @@ describe('Change Orders Routes', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           projectId: project.id,
+          coNumber: `CO-${Date.now()}`,
           title: 'Foundation Adjustment',
           description: 'Increase depth by 0.5m',
-          costImpact: 5000,
-          status: 'pending',
+          proposedCost: 5000,
+          status: 'submitted',
         });
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);

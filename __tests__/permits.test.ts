@@ -45,12 +45,12 @@ describe('Permits Routes', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           projectId: project.id,
-          permitNumber: `PERM-${Date.now()}`,
-          type: 'building',
-          issuingAuthority: 'City Council',
-          status: 'applied',
-          issueDate: new Date().toISOString(),
-          expiryDate: new Date(Date.now() + 365 * 86400000).toISOString(),
+          title: `Building Permit ${Date.now()}`,
+          type: 'general',
+          status: 'pending',
+          issuedBy: 'City Council',
+          validFrom: new Date().toISOString(),
+          validTo: new Date(Date.now() + 365 * 86400000).toISOString(),
         });
       expect([201, 200]).toContain(res.status);
       expect(res.body.success).toBe(true);

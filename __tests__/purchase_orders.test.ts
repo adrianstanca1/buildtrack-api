@@ -46,9 +46,10 @@ describe('Purchase Orders Routes', () => {
         .send({
           projectId: project.id,
           poNumber: `PO-${Date.now()}`,
-          vendor: 'SteelCorp',
-          description: 'Rebar supply',
-          totalAmount: 12000,
+          title: 'Rebar supply',
+          vendorName: 'SteelCorp',
+          description: 'Steel reinforcement bars for foundation pour',
+          total: 12000,
           status: 'draft',
         });
       expect([201, 200]).toContain(res.status);

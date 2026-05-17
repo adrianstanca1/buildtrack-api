@@ -45,9 +45,8 @@ describe('Site Photos Routes', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           projectId: project.id,
-          title: 'Foundation pour complete',
-          description: 'Concrete set and curing',
-          url: 'https://example.com/photo.jpg',
+          caption: 'Foundation pour complete — concrete set and curing',
+          photoUrl: 'https://example.com/photo.jpg',
           tags: ['foundation', 'concrete'],
         });
       expect([201, 200]).toContain(res.status);
