@@ -104,7 +104,9 @@ router.post('/', authenticateToken, validate(scheduleSchema), async (req, res, n
   } catch (err) { next(err); }
 });
 
-router.patch('/:id', authenticateToken, validate(updateSchema), async (req, res, next) => {
+// Partial-update handler — shared between PATCH (canonical) and PUT
+// (alias for clients that don't distinguish). Both accept updateSchema.
+const updateSchedule = async (req: any, res: any, next: any) => {
   try {
     const d = req.body;
     const fields: string[] = [];
@@ -138,7 +140,12 @@ router.patch('/:id', authenticateToken, validate(updateSchema), async (req, res,
     await auditLog({ eventType:'schedule_task_updated', userId: (req as any).user?.id, success: true, details: { scheduleId: req.params.id } });
     return successResponse(res, rows[0]);
   } catch (err) { next(err); }
-});
+};
+
+router.patch('/:id', authenticateToken, validate(updateSchema), updateSchedule);
+// PUT alias for PATCH — keeps the buildtrack-web EntityDetail component
+// uniform across entities (every other entity uses PUT for partial updates).
+router.put('/:id', authenticateToken, validate(updateSchema), updateSchedule);
 
 router.delete('/:id', authenticateToken, async (req, res, next) => {
   try {

@@ -129,8 +129,10 @@ router.post('/', authenticateToken, validate(coSchema), async (req, res, next) =
   } catch (err) { next(err); }
 });
 
-// PATCH /api/change-orders/:id
-router.patch('/:id', authenticateToken, validate(updateSchema), async (req, res, next) => {
+// Partial-update handler — shared between PATCH (canonical) and PUT
+// (alias for clients that don't distinguish). Both accept the same
+// updateSchema = coSchema.partial().
+const updateChangeOrder = async (req: any, res: any, next: any) => {
   try {
     const current = await query('SELECT * FROM change_orders WHERE id=$1', [req.params.id]);
     if (!current.rows[0]) return res.status(404).json({ success: false, error: { message: 'Not found', code: 'NOT_FOUND' } });
@@ -173,7 +175,16 @@ router.patch('/:id', authenticateToken, validate(updateSchema), async (req, res,
     await auditLog({ eventType:'change_order_updated', userId: (req as any).user?.id, success: true, details: { changeOrderId: req.params.id } });
     return successResponse(res, rows[0]);
   } catch (err) { next(err); }
-});
+};
+
+// PATCH /api/change-orders/:id (canonical)
+router.patch('/:id', authenticateToken, validate(updateSchema), updateChangeOrder);
+
+// PUT /api/change-orders/:id (alias — same handler).
+// Added so the buildtrack-web EntityDetail component can use a single PUT
+// shape across every entity. Without this, change-orders would be the only
+// entity needing a PATCH special-case in the frontend.
+router.put('/:id', authenticateToken, validate(updateSchema), updateChangeOrder);
 
 // DELETE /api/change-orders/:id
 router.delete('/:id', authenticateToken, async (req, res, next) => {
