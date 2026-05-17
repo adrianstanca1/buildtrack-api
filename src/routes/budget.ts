@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { query, transaction } from '../config/database.js';
 import { validate } from '../middleware/validate.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
-import { paginatedResponse, successResponse } from '../utils/response.js';
+import { paginatedResponse, successResponse, errorResponse } from '../utils/response.js';
 import { auditLog } from '../utils/audit.js';
 
 const router = Router();
@@ -152,6 +152,23 @@ router.post('/costs', authenticateToken, validate(costEntrySchema), async (req, 
     );
     await auditLog({ eventType:'cost_entry_created', userId: (req as any).user?.id, success: true, details: { costEntryId: id } });
     successResponse(res, rows[0], 201);
+  } catch (err) { next(err); }
+});
+
+router.get('/costs/:id', authenticateToken, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT ce.*, p.name as project_name, bc.name as category_name
+       FROM cost_entries ce
+       LEFT JOIN projects p ON p.id = ce.project_id
+       LEFT JOIN budget_categories bc ON bc.id = ce.budget_category_id
+       WHERE ce.id = $1 AND ce.deleted_at IS NULL`,
+      [req.params.id]
+    );
+    if (!rows[0]) {
+      return errorResponse(res, 'Cost entry not found', 'NOT_FOUND', 404);
+    }
+    successResponse(res, rows[0]);
   } catch (err) { next(err); }
 });
 
