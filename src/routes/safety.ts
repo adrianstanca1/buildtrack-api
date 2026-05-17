@@ -21,6 +21,20 @@ import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
+function broadcastEvent(eventType: string, data: Record<string, any>) {
+  try {
+    const io = (global as any).io;
+    if (!io) return;
+    io.emit(eventType, {
+      type: eventType,
+      data,
+      at: new Date().toISOString(),
+    });
+  } catch {
+    // Best-effort broadcast
+  }
+}
+
 const router = Router();
 
 const incidentSchema = z.object({
@@ -71,6 +85,7 @@ router.post('/incidents', authenticateToken, validate(incidentSchema), async (re
        injuries || 0, JSON.stringify(witnesses || []), JSON.stringify(photos || [])]
     );
     successResponse(res, result.rows[0], 201);
+    broadcastEvent('"${route%_s}:created', result.rows[0]);
   } catch (err) {
     errorResponse(res, 'Failed to create incident', 'INTERNAL_ERROR', 500);
   }
@@ -84,6 +99,7 @@ router.get('/incidents/:id', authenticateToken, validateParams(incidentIdSchema)
     );
     if (result.rows.length === 0) return errorResponse(res, 'Incident not found', 'NOT_FOUND', 404);
     successResponse(res, result.rows[0]);
+    broadcastEvent('"${route%_s}:updated', result.rows[0]);
   } catch (err) {
     errorResponse(res, 'Failed to fetch incident', 'INTERNAL_ERROR', 500);
   }
@@ -114,6 +130,7 @@ router.put('/incidents/:id', authenticateToken, validateParams(incidentIdSchema)
 
     if (result.rows.length === 0) return errorResponse(res, 'Incident not found', 'NOT_FOUND', 404);
     successResponse(res, result.rows[0]);
+    broadcastEvent('"${route%_s}:updated', result.rows[0]);
   } catch (err) {
     errorResponse(res, 'Failed to update incident', 'INTERNAL_ERROR', 500);
   }
@@ -123,7 +140,8 @@ router.delete('/incidents/:id', authenticateToken, validateParams(incidentIdSche
   try {
     const result = await query('DELETE FROM safety_incidents WHERE id = $1 RETURNING id', [req.params.id]);
     if (result.rows.length === 0) return errorResponse(res, 'Incident not found', 'NOT_FOUND', 404);
-    successResponse(res, { message: 'Incident deleted' });
+    successResponse(res, { message: "Deleted" });
+    broadcastEvent('"${route%_s}:deleted', { id: req.params.id });
   } catch (err) {
     errorResponse(res, 'Failed to delete incident', 'INTERNAL_ERROR', 500);
   }

@@ -5,6 +5,20 @@ import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
 
+function broadcastEvent(eventType: string, data: Record<string, any>) {
+  try {
+    const io = (global as any).io;
+    if (!io) return;
+    io.emit(eventType, {
+      type: eventType,
+      data,
+      at: new Date().toISOString(),
+    });
+  } catch {
+    // Best-effort broadcast
+  }
+}
+
 const router = Router();
 
 const sitePhotoSchema = z.object({
@@ -85,6 +99,7 @@ router.post('/', authenticateToken, validate(sitePhotoSchema), async (req, res) 
     );
 
     successResponse(res, result.rows[0], 201);
+    broadcastEvent('"${route%_s}:created', result.rows[0]);
   } catch (err) {
     console.error('[SitePhotos] Create error:', err);
     errorResponse(res, 'Failed to create site photo', 'INTERNAL_ERROR', 500);
@@ -108,6 +123,7 @@ router.get('/:id', authenticateToken, validateParams(sitePhotoIdSchema), async (
       return errorResponse(res, 'Site photo not found', 'NOT_FOUND', 404);
     }
     successResponse(res, result.rows[0]);
+    broadcastEvent('"${route%_s}:updated', result.rows[0]);
   } catch (err) {
     console.error('[SitePhotos] Get error:', err);
     errorResponse(res, 'Failed to fetch site photo', 'INTERNAL_ERROR', 500);
@@ -144,6 +160,7 @@ router.put('/:id', authenticateToken, validateParams(sitePhotoIdSchema), validat
     );
 
     successResponse(res, result.rows[0]);
+    broadcastEvent('"${route%_s}:updated', result.rows[0]);
   } catch (err) {
     console.error('[SitePhotos] Update error:', err);
     errorResponse(res, 'Failed to update site photo', 'INTERNAL_ERROR', 500);

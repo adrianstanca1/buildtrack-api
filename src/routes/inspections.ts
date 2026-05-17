@@ -5,6 +5,20 @@ import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
+function broadcastEvent(eventType: string, data: Record<string, any>) {
+  try {
+    const io = (global as any).io;
+    if (!io) return;
+    io.emit(eventType, {
+      type: eventType,
+      data,
+      at: new Date().toISOString(),
+    });
+  } catch {
+    // Best-effort broadcast
+  }
+}
+
 const router = Router();
 
 const inspectionSchema = z.object({
@@ -67,6 +81,7 @@ router.post('/', authenticateToken, validate(inspectionSchema), async (req, res)
        JSON.stringify(findings || []), JSON.stringify(photos || [])]
     );
     successResponse(res, result.rows[0], 201);
+    broadcastEvent('"${route%_s}:created', result.rows[0]);
   } catch (err) {
     errorResponse(res, 'Failed to create inspection', 'INTERNAL_ERROR', 500);
   }
@@ -77,6 +92,7 @@ router.get('/:id', authenticateToken, validateParams(inspectionIdSchema), async 
     const result = await query('SELECT * FROM inspections WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return errorResponse(res, 'Inspection not found', 'NOT_FOUND', 404);
     successResponse(res, result.rows[0]);
+    broadcastEvent('"${route%_s}:updated', result.rows[0]);
   } catch (err) {
     errorResponse(res, 'Failed to fetch inspection', 'INTERNAL_ERROR', 500);
   }
@@ -107,6 +123,7 @@ router.put('/:id', authenticateToken, validateParams(inspectionIdSchema), valida
 
     if (result.rows.length === 0) return errorResponse(res, 'Inspection not found', 'NOT_FOUND', 404);
     successResponse(res, result.rows[0]);
+    broadcastEvent('"${route%_s}:updated', result.rows[0]);
   } catch (err) {
     errorResponse(res, 'Failed to update inspection', 'INTERNAL_ERROR', 500);
   }
@@ -116,7 +133,8 @@ router.delete('/:id', authenticateToken, validateParams(inspectionIdSchema), asy
   try {
     const result = await query('DELETE FROM inspections WHERE id = $1 RETURNING id', [req.params.id]);
     if (result.rows.length === 0) return errorResponse(res, 'Inspection not found', 'NOT_FOUND', 404);
-    successResponse(res, { message: 'Inspection deleted' });
+    successResponse(res, { message: "Deleted" });
+    broadcastEvent('"${route%_s}:deleted', { id: req.params.id });
   } catch (err) {
     errorResponse(res, 'Failed to delete inspection', 'INTERNAL_ERROR', 500);
   }

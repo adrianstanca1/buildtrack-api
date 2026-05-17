@@ -21,6 +21,20 @@ import { validate, validateParams } from '../middleware/validate.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
+function broadcastEvent(eventType: string, data: Record<string, any>) {
+  try {
+    const io = (global as any).io;
+    if (!io) return;
+    io.emit(eventType, {
+      type: eventType,
+      data,
+      at: new Date().toISOString(),
+    });
+  } catch {
+    // Best-effort broadcast
+  }
+}
+
 const router = Router();
 
 const workerSchema = z.object({
@@ -70,6 +84,7 @@ router.post('/', authenticateToken, validate(workerSchema), async (req, res) => 
        hourlyRate || 0, weeklyHours || 0, JSON.stringify(certifications || []), avatarUrl || null]
     );
     successResponse(res, result.rows[0], 201);
+    broadcastEvent('worker:created', result.rows[0]);
   } catch (err) {
     errorResponse(res, 'Failed to create worker', 'INTERNAL_ERROR', 500);
   }
@@ -114,6 +129,7 @@ router.put('/:id', authenticateToken, validateParams(workerIdSchema), validate(w
 
     if (result.rows.length === 0) return errorResponse(res, 'Worker not found', 'NOT_FOUND', 404);
     successResponse(res, result.rows[0]);
+    broadcastEvent('worker:updated', result.rows[0]);
   } catch (err) {
     errorResponse(res, 'Failed to update worker', 'INTERNAL_ERROR', 500);
   }
@@ -125,6 +141,7 @@ router.delete('/:id', authenticateToken, validateParams(workerIdSchema), async (
     const result = await query('DELETE FROM workers WHERE id = $1 AND user_id = $2 RETURNING id', [req.params.id, userId]);
     if (result.rows.length === 0) return errorResponse(res, 'Worker not found', 'NOT_FOUND', 404);
     successResponse(res, { message: 'Worker deleted' });
+    broadcastEvent('worker:deleted', { id: req.params.id });
   } catch (err) {
     errorResponse(res, 'Failed to delete worker', 'INTERNAL_ERROR', 500);
   }
