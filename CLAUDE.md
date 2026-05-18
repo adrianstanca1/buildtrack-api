@@ -19,8 +19,11 @@ and buildtrack-web (Next.js PWA) clients.
 - **Payments**: Stripe 22 (subscriptions + webhooks). Raw body parser
   is mounted BEFORE `express.json` on `/api/payments/webhook` for the
   webhook signature check — never reorder these middlewares.
-- **Email**: `nodemailer` (configured but `/forgot-password` currently
-  logs the reset URL instead of sending — wire to Brevo/SendGrid).
+- **Email**: Brevo HTTP API (`src/utils/sendEmail.ts`) — shared Brevo
+  account with cortexbuild-field (300/day free quota, domain auth on
+  `@cortexbuildpro.com`). Falls back to nodemailer SMTP if
+  `BREVO_API_KEY` is unset. Dev with neither configured: log + return.
+  Production with neither: throws.
 - **Validation**: Zod schemas + `validate`/`validateParams`/`validateQuery`
   middleware (`src/middleware/validate.ts`).
 - **Tests**: Jest 30 + supertest, 73 tests across 4 files (auth,
@@ -182,9 +185,10 @@ timesheet approvals, and inspection state changes.
   files render in Swagger UI as undocumented paths (route shows but
   no schema). Adding JSDoc is per-route work — track it as a
   documentation-debt item.
-- **`/forgot-password` doesn't actually send email** in dev — it logs
-  the reset URL. Wire to Brevo (workspace-wide email provider, see
-  `reference_brevo_email.md`).
+- **Reset-URL log line is dev-only** (`src/routes/auth.ts`) — production
+  logs `"Password reset requested for <email>"` without the URL, so PM2
+  log files don't carry live reset tokens. Gated on
+  `NODE_ENV !== 'production'`.
 - **PM2 `pm2 save` is easy to forget** after a `pm2 restart` — the new
   process state won't survive a reboot until you save. The workspace
   CLAUDE.md flags this rule globally.

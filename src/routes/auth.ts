@@ -570,7 +570,13 @@ router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res)
         logger.error('[Auth] Failed to send reset email to ' + normalised, emailErr);
       }
 
-      logger.info(`[Auth] Password reset for ${normalised} → ${resetUrl}`);
+      if (process.env.NODE_ENV !== 'production') {
+        // Dev-only: surfacing the URL aids local testing. Logging in production
+        // would persist a live reset token to PM2 log files.
+        logger.info(`[Auth] Password reset for ${normalised} → ${resetUrl}`);
+      } else {
+        logger.info(`[Auth] Password reset requested for ${normalised}`);
+      }
 
       await auditLog({
         userId,
